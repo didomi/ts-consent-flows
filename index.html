@@ -602,12 +602,15 @@
                 SDK, your test settings, and the browser’s Global Privacy
                 Control signal. It shows the selected regulation, whether a
                 widget or notice is visible, available widget IDs, display-rule
-                count, and widgets missing a display asset URL. The loaded
-                settings are those applied at the last page load; unsaved form
-                edits are not included. A null value means that information was
-                unavailable. These are debugging observations, not confirmation
-                that your Console setup is correct. For the full
-                Didomi.getConfig() response, open tab 3, “Configuration.”
+                count, and published widget display assets. Asset checks use the
+                SDK host’s language and the loaded modern or legacy SDK script
+                when available. If either is unavailable, the runtime details
+                show that uncertainty. The loaded settings are those applied at
+                the last page load; unsaved form edits are not included. A null
+                value means that information was unavailable. These are
+                debugging observations, not confirmation that your Console setup
+                is correct. For the full Didomi.getConfig() response, open tab
+                3, “Configuration.”
               </p>
               <pre
                 id="runtime-info"

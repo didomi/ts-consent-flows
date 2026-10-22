@@ -226,13 +226,112 @@ test("ready SDK with unresolved widget bundles reports the live Flow failure vis
   });
   await page.goto("/index.html?apiKey=key&flow_id=flow");
   await expect(page.locator("#status")).toContainText(
-    "widgets have no bundle URL: testWidget",
+    "widgets have no usable web display assets: testWidget",
   );
   await expect(page.locator("#status")).toHaveAttribute("data-error", "true");
   await expect(page.locator("#runtime-info")).toContainText(
     '"missingBundleUrls"',
   );
 });
+
+for (const sdkBuild of ["modern", "legacy"]) {
+  test(`published artifacts and brand snapshots pass diagnostics for the ${sdkBuild} SDK`, async ({
+    page,
+  }) => {
+    const config = {
+      app: { apiKey: "key" },
+      regulation: { name: "gdpr" },
+      widgets: {
+        testWidget: {
+          versionId: "v1",
+          defaultLanguage: "en",
+          artifacts: {
+            web: {
+              en: {},
+              fr: {
+                modern: "https://example.com/widget.fr.js",
+                legacy: {
+                  url: "https://example.com/classic.fr.js",
+                  globalName: "PublishedWidget",
+                },
+              },
+            },
+          },
+        },
+      },
+      defaultWidgetId: "testWidget",
+      rules: [{ id: "rule", targetWidgetId: "testWidget", scenarios: [] }],
+      brand: {
+        brandConfigId: "brand",
+        versionId: "brand-version",
+        name: "Example",
+        brand_config: {
+          id: "brand-version",
+          css_tokens: {},
+          component_props: {},
+        },
+      },
+    };
+    await mockSDK(
+      page,
+      config,
+      `
+      const host = document.createElement('div');
+      host.id = 'didomi-host';
+      host.lang = 'fr';
+      document.body.append(host);
+      const sdk = document.createElement('script');
+      sdk.type = 'application/json';
+      sdk.src = 'https://sdk.privacy-center.org/sdk/test-build/${sdkBuild}/sdk.test-build.js';
+      document.head.append(sdk);
+    `,
+    );
+    // The request language and CTV UI override must not override observed runtime context.
+    await page.goto(
+      "/index.html?apiKey=key&flow_id=flow&lang=de&ctv_ui=1#test",
+    );
+    await expect(page.locator("#status")).toContainText("SDK ready");
+    await expect(page.locator("#status")).toHaveAttribute(
+      "data-error",
+      "false",
+    );
+    await expect(page.locator("#config-findings")).not.toContainText(
+      "Widget has no usable",
+    );
+    await expect(page.locator("#config-findings")).not.toContainText(
+      "Brand has no published",
+    );
+    const runtime = JSON.parse(
+      await page.locator("#runtime-info").textContent(),
+    );
+    expect(runtime.missingBundleUrls).toEqual([]);
+    expect(runtime.assetContext).toMatchObject({ language: "fr", sdkBuild });
+    expect(runtime.widgetAssets.testWidget.language).toBe("fr");
+    await page
+      .getByRole("button", { name: "Show widget", exact: true })
+      .click();
+    expect(await page.evaluate(() => window.testCalls)).toEqual([
+      ["show", undefined],
+    ]);
+    // A reference-only brand override needs different guidance from a missing brand ID.
+    await page.evaluate((config) => {
+      config.brand = { brandConfigId: "brand", versionId: "brand-version" };
+      window.Didomi.getConfig = () => config;
+    }, config);
+    await page
+      .getByRole("tab", { name: "3. Configuration", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Refresh loaded config", exact: true })
+      .click();
+    await expect(page.locator("#config-findings")).toContainText(
+      "Brand has no published theme snapshot",
+    );
+    await expect(page.locator("#config-findings")).toContainText(
+      "override can replace the snapshot",
+    );
+  });
+}
 
 test("empty form is usable, incomplete links hydrate, and SDK is not requested", async ({
   page,
@@ -645,7 +744,7 @@ test("troubleshooting captures startup messages, preserves console forwarding, a
     "No warnings or errors captured",
   );
   await expect(page.locator("#config-findings")).toContainText(
-    "Widget has no usable bundle URL",
+    "Widget has no usable web display asset",
   );
 });
 

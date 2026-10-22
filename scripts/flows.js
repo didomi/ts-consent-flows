@@ -149,6 +149,17 @@ function stateFromForm() {
     fields.map(({ key }) => [key, controls.get(key).value]),
   );
 }
+function assetContext() {
+  const sdkScript = [...document.scripts].find((script) =>
+    /\/sdk\/[^/]+\/(modern|legacy)\/sdk\.[^/]+\.js(?:[?#]|$)/.test(script.src),
+  );
+  return {
+    language:
+      document.getElementById("didomi-host")?.getAttribute("lang") || undefined,
+    sdkBuild: sdkScript?.src.match(/\/(modern|legacy)\/sdk\./)?.[1],
+    sdkScriptURL: sdkScript?.src || null,
+  };
+}
 function preview(state, updateHistory = false) {
   const url = shareURL(state, location.href);
   document.querySelector("#share-url").value = url.href;
@@ -223,7 +234,8 @@ window.addEventListener("popstate", () => location.reload());
 
 function renderRuntime() {
   const config = window.Didomi?.getConfig?.();
-  const diagnostics = widgetDiagnostics(config);
+  const context = assetContext();
+  const diagnostics = widgetDiagnostics(config, context);
   const visible = window.Didomi?.widgets?.isVisible?.();
   const noticeVisible = window.Didomi?.notice?.isVisible?.();
   const previewVisible = Boolean(
@@ -265,6 +277,7 @@ function renderRuntime() {
       widgetVisible: visible ?? null,
       noticeVisible: noticeVisible ?? null,
       ...diagnostics,
+      assetContext: context,
       globalPrivacyControl: navigator.globalPrivacyControl === true,
       widgetOptions: widgetOptions(stateFromForm()) ?? null,
       loadedSettings: {
@@ -285,6 +298,7 @@ function renderLoadedConfig() {
     viewer.update(config);
     troubleshooting.update(config, {
       ...(applied || initial),
+      ...assetContext(),
       widget_id: controls.get("widget_id").value,
       layer_name: controls.get("layer_name").value,
       ready,
@@ -476,7 +490,10 @@ async function start() {
       ])
         window.Didomi.on(event, renderRuntime);
     }
-    const diagnostics = widgetDiagnostics(window.Didomi?.getConfig?.());
+    const diagnostics = widgetDiagnostics(
+      window.Didomi?.getConfig?.(),
+      assetContext(),
+    );
     if (!window.Didomi?.widgets) {
       message(
         "SDK ready, but the widgets API is unavailable. Verify the deployment and SDK version.",
@@ -489,7 +506,7 @@ async function start() {
       );
     } else if (diagnostics.missingBundleUrls.length) {
       message(
-        `SDK ready, but these widgets have no bundle URL: ${diagnostics.missingBundleUrls.join(", ")}. Verify Flow publishing and config delivery.`,
+        `SDK ready, but these widgets have no usable web display assets: ${diagnostics.missingBundleUrls.join(", ")}. Verify Flow publishing and config delivery.`,
         true,
       );
     } else {
