@@ -141,7 +141,7 @@ export function checkConfig(config, state = {}) {
       "requested-widget",
       "warning",
       "Requested widget is absent from the catalog",
-      `The applied Widget ID is ${state.widget_id}.`,
+      `The selected Widget ID is ${state.widget_id}.`,
       "Compare this Widget ID with the widgets assigned under Flows → Privacy Widgets for the selected regulation. Use an assigned ID, or clear this sandbox input to test the Flow’s normal selection.",
     );
   if (config.rules !== undefined && !Array.isArray(config.rules))

@@ -23,6 +23,7 @@ const consentStrings = createConsentStrings(
 );
 const pathTest = createPathTest(document.querySelector("#path-test"));
 const controls = new Map();
+const widgetKeys = new Set(["widget_id", "layer_name"]);
 const initial = readState(new URLSearchParams(location.search));
 let applied;
 let ready = false;
@@ -74,6 +75,7 @@ for (const [groupIndex, group] of groups.entries()) {
     );
     input.id = field.key;
     input.name = field.key;
+    input.setAttribute("form", "flow-form");
     if (field.options) {
       for (const value of field.options) {
         const option = document.createElement("option");
@@ -112,7 +114,8 @@ for (const [groupIndex, group] of groups.entries()) {
     help.textContent = field.hint;
     input.setAttribute("aria-describedby", help.id);
     const wrapper = document.createElement("div");
-    if (field.type === "textarea") wrapper.className = "wide";
+    if (field.type === "textarea" || field.key === "apply_conf")
+      wrapper.className = "wide";
     wrapper.append(label, input, help);
     if (field.tooltip) {
       const details = document.createElement("details");
@@ -124,7 +127,10 @@ for (const [groupIndex, group] of groups.entries()) {
       details.append(summary, explanation);
       wrapper.append(details);
     }
-    grid.append(wrapper);
+    const target = widgetKeys.has(field.key)
+      ? document.querySelector("#widget-fields")
+      : grid;
+    target.append(wrapper);
     controls.set(field.key, input);
   }
   fieldset.append(legend, hint, grid);
@@ -170,11 +176,21 @@ function preview(state, updateHistory = false) {
     return false;
   }
 }
-form.addEventListener("input", () => {
-  const valid = preview(stateFromForm(), true);
-  if (valid)
-    message("Settings changed. Apply and reload to test this configuration.");
-});
+for (const [key, input] of controls) {
+  input.addEventListener("input", () => {
+    const valid = preview(stateFromForm(), true);
+    if (widgetKeys.has(key)) {
+      if (ready) {
+        renderRuntime();
+        renderLoadedConfig();
+      }
+      if (valid)
+        message("Widget selection changed. Click Show widget to test it.");
+    } else if (valid) {
+      message("Settings changed. Apply and reload to test this configuration.");
+    }
+  });
+}
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const state = stateFromForm();
@@ -250,11 +266,11 @@ function renderRuntime() {
       noticeVisible: noticeVisible ?? null,
       ...diagnostics,
       globalPrivacyControl: navigator.globalPrivacyControl === true,
+      widgetOptions: widgetOptions(stateFromForm()) ?? null,
       loadedSettings: {
         flowId: applied.flow_id,
         environment: applied.environment,
         sdkEnvironment: applied.sdk_environment,
-        widgetOptions: widgetOptions(applied) ?? null,
       },
     },
     null,
@@ -269,6 +285,8 @@ function renderLoadedConfig() {
     viewer.update(config);
     troubleshooting.update(config, {
       ...(applied || initial),
+      widget_id: controls.get("widget_id").value,
+      layer_name: controls.get("layer_name").value,
       ready,
       pathname: location.pathname,
     });
@@ -281,6 +299,8 @@ function renderLoadedConfig() {
     viewer.error(`Could not read Didomi.getConfig(): ${error.message}`);
     troubleshooting.update(undefined, {
       ...(applied || initial),
+      widget_id: controls.get("widget_id").value,
+      layer_name: controls.get("layer_name").value,
       ready,
       pathname: location.pathname,
     });
@@ -328,7 +348,7 @@ document.querySelector("#show-widget").addEventListener("click", async () => {
       throw new Error("Widget controls are unavailable in the loaded SDK.");
     }
     await Promise.race([
-      window.Didomi.widgets.show(widgetOptions(applied)),
+      window.Didomi.widgets.show(widgetOptions(stateFromForm())),
       new Promise((_, reject) => {
         timeout = setTimeout(
           () =>

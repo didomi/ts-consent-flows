@@ -212,7 +212,7 @@ export const groups = [
       field(
         "apply_conf",
         "Apply custom JSON",
-        "Applies the custom configuration entered below when the page reloads. Leave off to keep the JSON in your share link without applying it. More specific inputs above take priority over conflicting values.",
+        "Set to On, then click Apply and reload to use the JSON below. Off keeps the JSON in your share link without applying it. More specific inputs above take priority over conflicting values.",
         ["", "1"],
       ),
       field(

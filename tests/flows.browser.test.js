@@ -326,8 +326,10 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
   await page.getByLabel("Apply custom JSON", { exact: true }).selectOption("1");
   await page.getByLabel("Age", { exact: true }).fill("18");
   await page.getByLabel("Load GPP stub", { exact: true }).selectOption("1");
+  await page.getByRole("tab", { name: "2. Test & troubleshoot" }).click();
   await page.getByLabel("Widget ID", { exact: true }).fill("widget");
   await page.getByLabel("Layer name", { exact: true }).fill("preferences");
+  await openSetup(page);
   await expect(page.locator("#loader-url")).toContainText(
     "environment=staging",
   );
@@ -389,6 +391,97 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
   expect(errors).toEqual([]);
 });
 
+test("widget selections can be changed in the test tab and restored from share links", async ({
+  page,
+}) => {
+  await mockSDK(page);
+  let loaderCount = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/loader.js")) loaderCount++;
+  });
+  await page.goto(
+    "/index.html?apiKey=key&flow_id=flow&widget_id=original&layer_name=first#test",
+  );
+  const widget = page.getByLabel("Widget ID", { exact: true });
+  const layer = page.getByLabel("Layer name", { exact: true });
+  await expect(widget).toBeVisible();
+  await expect(layer).toBeVisible();
+  await expect(widget).toHaveValue("original");
+  await expect(layer).toHaveValue("first");
+  const show = page.getByRole("button", { name: "Show widget", exact: true });
+  await show.click();
+  await widget.fill("another");
+  await layer.fill("preferences");
+  await show.click();
+  expect(await page.evaluate(() => window.testCalls)).toEqual([
+    ["show", { widgetId: "original", layerName: "first" }],
+    ["show", { widgetId: "another", layerName: "preferences" }],
+  ]);
+  expect(loaderCount).toBe(1);
+  const shared = await page.locator("#share-url").inputValue();
+  expect(new URL(shared).searchParams.get("widget_id")).toBe("another");
+  expect(new URL(shared).searchParams.get("layer_name")).toBe("preferences");
+  await page.goto(shared);
+  await expect(widget).toHaveValue("another");
+  await expect(layer).toHaveValue("preferences");
+  await widget.fill("");
+  await show.click();
+  await layer.fill("");
+  await show.click();
+  expect(await page.evaluate(() => window.testCalls)).toEqual([
+    ["show", { layerName: "preferences" }],
+    ["show", undefined],
+  ]);
+  expect(new URL(page.url()).searchParams.has("widget_id")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("layer_name")).toBe(false);
+  expect(loaderCount).toBe(2);
+});
+
+test("custom JSON has an adjacent On/Off control and applies only after enabling and reloading", async ({
+  page,
+}) => {
+  await mockSDK(page);
+  await page.goto("/index.html?apiKey=key&flow_id=flow");
+  await openSetup(page);
+  const toggle = page.getByLabel("Apply custom JSON", { exact: true });
+  const editor = page.getByLabel("Custom didomiConfig JSON", { exact: true });
+  await expect(toggle).toHaveValue("");
+  await expect(toggle.locator("option:checked")).toHaveText("Off");
+  await expect(page.locator('[id="apply_conf-help"]')).toContainText(
+    "Set to On, then click Apply and reload",
+  );
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const controlBox = await toggle.boundingBox();
+    const editorBox = await editor.boundingBox();
+    expect(controlBox.y + controlBox.height).toBeLessThan(editorBox.y);
+    expect(controlBox.x).toBe(editorBox.x);
+    expect(controlBox.width).toBe(editorBox.width);
+  }
+  await editor.fill('{"testOverride":"saved"}');
+  const apply = page.getByRole("button", {
+    name: "Apply and reload",
+    exact: true,
+  });
+  await apply.click();
+  await expect(page.locator("#status")).toContainText("SDK ready");
+  expect(
+    await page.evaluate(() => window.testBootstrap.config.testOverride),
+  ).toBeUndefined();
+  await openSetup(page);
+  await expect(editor).toHaveValue('{"testOverride":"saved"}');
+  await toggle.selectOption("1");
+  await expect(toggle.locator("option:checked")).toHaveText("On");
+  expect(
+    await page.evaluate(() => window.testBootstrap.config.testOverride),
+  ).toBeUndefined();
+  await apply.click();
+  await expect(page.locator("#status")).toContainText("SDK ready");
+  expect(
+    await page.evaluate(() => window.testBootstrap.config.testOverride),
+  ).toBe("saved");
+});
+
 test("malformed shared JSON blocks SDK startup and can be corrected", async ({
   page,
 }) => {
@@ -432,7 +525,9 @@ test("mobile page fits the viewport and every input has an accessible label", as
   ).toBe(true);
   expect(
     await page
-      .locator("#flow-form input, #flow-form select, #flow-form textarea")
+      .locator(
+        '#sandbox input[form="flow-form"], #sandbox select[form="flow-form"], #sandbox textarea[form="flow-form"]',
+      )
       .evaluateAll((inputs) =>
         inputs.every((input) => input.labels.length > 0),
       ),

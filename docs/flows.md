@@ -11,10 +11,12 @@ index.html?apiKey=YOUR_PUBLIC_KEY&flow_id=YOUR_FLOW_ID&environment=staging&count
 ## Workspace
 
 - **Setup:** a section navigation column and collapsible groups for Flow details, delivery overrides, SDK URL overrides, rules context, and advanced configuration. Apply and reload opens the test tab.
-- **Test & troubleshoot:** widget controls and a compact applied-settings summary sit beside Console setup findings. The Console checklist, raw evidence, and captured runtime messages expand when needed.
+- **Test & troubleshoot:** Widget ID and Layer name sit beside Show widget. Change either and click Show widget without reloading; leave both blank to use Flow rules. These selections are preserved in share links. A compact applied-settings summary sits beside Console setup findings. The Console checklist, raw evidence, and captured runtime messages expand when needed.
 - **Configuration:** an expandable tree and complete plain JSON view of `Didomi.getConfig()`, with refresh and copy controls. Runtime overrides are included; use browser Network for the original response. Tree branches render lazily; large collections show 100 entries at a time. Expand sections opens up to 1,000 sections per click. Plain JSON and Copy JSON always include the complete response.
 
 Tabs support keyboard arrows, Home and End. The fragments `#setup`, `#test`, and `#config` open the relevant workspace; previous config and troubleshooting section anchors are also supported.
+
+In Setup → SDK configuration and tools, **Apply custom JSON** sits directly above the custom JSON editor. Set it to **On**, then click **Apply and reload** to apply the override. **Off** keeps the JSON in the share link without applying it.
 
 ## Query parameters
 
