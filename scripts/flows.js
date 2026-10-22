@@ -241,6 +241,17 @@ function renderRuntime() {
   const previewVisible = Boolean(
     visible || noticeVisible || window.Didomi?.preferences?.isVisible?.(),
   );
+  document
+    .querySelector("#didomi-host")
+    ?.toggleAttribute(
+      "data-sandbox-ctv-preview",
+      previewVisible &&
+        Boolean(
+          config?.app?.ctvEnabled ||
+            applied.platform === "ctv" ||
+            applied.ctv_ui === "1",
+        ),
+    );
   document.querySelector("#hide-preview").hidden = !previewVisible;
   if (previewVisible)
     document

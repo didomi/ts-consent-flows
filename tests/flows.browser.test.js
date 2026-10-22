@@ -196,6 +196,103 @@ test("Hide preview dismisses a fallback notice without resetting or writing cons
   await page.getByRole("button", { name: "Hide preview", exact: true }).click();
 });
 
+test("CTV preview fills the viewport above sticky workspace controls and can be dismissed", async ({
+  page,
+}) => {
+  await mockSDK(page, {
+    app: { apiKey: "key", ctvEnabled: true },
+    regulation: { name: "cpra" },
+    widgets: {
+      tv: {
+        defaultLanguage: "en",
+        artifacts: { web: { en: { modern: "https://example.com/widget.js" } } },
+      },
+    },
+    rules: [{ targetWidgetId: "tv" }],
+  });
+  await page.goto("/index.html?apiKey=key&flow_id=flow&platform=ctv#test");
+  await expect(page.locator("#show-widget")).toBeEnabled();
+  await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.id = "didomi-host";
+    const root = host.attachShadow({ mode: "open" });
+    root.innerHTML =
+      "<style>section {position:absolute;inset:0;background:white}</style><section hidden>CTV preview</section>";
+    const screen = root.querySelector("section");
+    document.body.append(host);
+    const show = window.Didomi.widgets.show;
+    const hide = window.Didomi.widgets.hide;
+    window.Didomi.widgets.show = (options) => {
+      screen.hidden = false;
+      return show(options);
+    };
+    window.Didomi.widgets.hide = () => {
+      screen.hidden = true;
+      return hide();
+    };
+  });
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 1200, height: 876 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page
+      .getByRole("button", { name: "Show widget", exact: true })
+      .click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const tabs = document
+            .querySelector(".workspace-tabs")
+            .getBoundingClientRect();
+          const host = document.querySelector("#didomi-host");
+          const rect = host.getBoundingClientRect();
+          const hide = document
+            .querySelector("#hide-preview")
+            .getBoundingClientRect();
+          return {
+            width: rect.width,
+            height: rect.height,
+            top: rect.top,
+            left: rect.left,
+            coversTabs:
+              document.elementFromPoint(tabs.x + 10, tabs.y + 10) === host,
+            hideReachable:
+              document.elementFromPoint(
+                hide.x + hide.width / 2,
+                hide.y + hide.height / 2,
+              )?.id === "hide-preview",
+          };
+        }),
+      )
+      .toEqual({
+        width: viewport.width,
+        height: viewport.height,
+        top: 0,
+        left: 0,
+        coversTabs: true,
+        hideReachable: true,
+      });
+    await page
+      .getByRole("button", { name: "Hide preview", exact: true })
+      .click();
+    await expect(page.locator("#didomi-host")).not.toHaveAttribute(
+      "data-sandbox-ctv-preview",
+    );
+    await page.getByRole("tab", { name: "1. Setup", exact: true }).click();
+    await expect(page.locator("#tab-setup")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page
+      .getByRole("tab", { name: "2. Test & troubleshoot", exact: true })
+      .click();
+  }
+  expect(await page.evaluate(() => localStorage.getItem("test-reset"))).toBe(
+    null,
+  );
+});
+
 test("Hide preview shortcut escapes a native modal widget without changing consent", async ({
   page,
 }) => {
@@ -362,6 +459,10 @@ for (const sdkBuild of ["modern", "legacy"]) {
     expect(await page.evaluate(() => window.testCalls)).toEqual([
       ["show", undefined],
     ]);
+    // CTV previews cover the workspace until the tester dismisses them.
+    await page
+      .getByRole("button", { name: "Hide preview", exact: true })
+      .click();
     // A reference-only brand override needs different guidance from a missing brand ID.
     await page.evaluate((config) => {
       config.brand = { brandConfigId: "brand", versionId: "brand-version" };
