@@ -23,6 +23,7 @@ const consentStrings = createConsentStrings(
 );
 const pathTest = createPathTest(document.querySelector("#path-test"));
 const controls = new Map();
+const widgetKeys = new Set(["widget_id", "layer_name"]);
 const initial = readState(new URLSearchParams(location.search));
 let applied;
 let ready = false;
@@ -74,6 +75,7 @@ for (const [groupIndex, group] of groups.entries()) {
     );
     input.id = field.key;
     input.name = field.key;
+    input.setAttribute("form", "flow-form");
     if (field.options) {
       for (const value of field.options) {
         const option = document.createElement("option");
@@ -112,7 +114,8 @@ for (const [groupIndex, group] of groups.entries()) {
     help.textContent = field.hint;
     input.setAttribute("aria-describedby", help.id);
     const wrapper = document.createElement("div");
-    if (field.type === "textarea") wrapper.className = "wide";
+    if (field.type === "textarea" || field.key === "apply_conf")
+      wrapper.className = "wide";
     wrapper.append(label, input, help);
     if (field.tooltip) {
       const details = document.createElement("details");
@@ -124,7 +127,10 @@ for (const [groupIndex, group] of groups.entries()) {
       details.append(summary, explanation);
       wrapper.append(details);
     }
-    grid.append(wrapper);
+    const target = widgetKeys.has(field.key)
+      ? document.querySelector("#widget-fields")
+      : grid;
+    target.append(wrapper);
     controls.set(field.key, input);
   }
   fieldset.append(legend, hint, grid);
@@ -142,6 +148,17 @@ function stateFromForm() {
   return Object.fromEntries(
     fields.map(({ key }) => [key, controls.get(key).value]),
   );
+}
+function assetContext() {
+  const sdkScript = [...document.scripts].find((script) =>
+    /\/sdk\/[^/]+\/(modern|legacy)\/sdk\.[^/]+\.js(?:[?#]|$)/.test(script.src),
+  );
+  return {
+    language:
+      document.getElementById("didomi-host")?.getAttribute("lang") || undefined,
+    sdkBuild: sdkScript?.src.match(/\/(modern|legacy)\/sdk\./)?.[1],
+    sdkScriptURL: sdkScript?.src || null,
+  };
 }
 function preview(state, updateHistory = false) {
   const url = shareURL(state, location.href);
@@ -170,11 +187,21 @@ function preview(state, updateHistory = false) {
     return false;
   }
 }
-form.addEventListener("input", () => {
-  const valid = preview(stateFromForm(), true);
-  if (valid)
-    message("Settings changed. Apply and reload to test this configuration.");
-});
+for (const [key, input] of controls) {
+  input.addEventListener("input", () => {
+    const valid = preview(stateFromForm(), true);
+    if (widgetKeys.has(key)) {
+      if (ready) {
+        renderRuntime();
+        renderLoadedConfig();
+      }
+      if (valid)
+        message("Widget selection changed. Click Show widget to test it.");
+    } else if (valid) {
+      message("Settings changed. Apply and reload to test this configuration.");
+    }
+  });
+}
 form.addEventListener("submit", (event) => {
   event.preventDefault();
   const state = stateFromForm();
@@ -207,7 +234,8 @@ window.addEventListener("popstate", () => location.reload());
 
 function renderRuntime() {
   const config = window.Didomi?.getConfig?.();
-  const diagnostics = widgetDiagnostics(config);
+  const context = assetContext();
+  const diagnostics = widgetDiagnostics(config, context);
   const visible = window.Didomi?.widgets?.isVisible?.();
   const noticeVisible = window.Didomi?.notice?.isVisible?.();
   const previewVisible = Boolean(
@@ -249,12 +277,13 @@ function renderRuntime() {
       widgetVisible: visible ?? null,
       noticeVisible: noticeVisible ?? null,
       ...diagnostics,
+      assetContext: context,
       globalPrivacyControl: navigator.globalPrivacyControl === true,
+      widgetOptions: widgetOptions(stateFromForm()) ?? null,
       loadedSettings: {
         flowId: applied.flow_id,
         environment: applied.environment,
         sdkEnvironment: applied.sdk_environment,
-        widgetOptions: widgetOptions(applied) ?? null,
       },
     },
     null,
@@ -269,6 +298,9 @@ function renderLoadedConfig() {
     viewer.update(config);
     troubleshooting.update(config, {
       ...(applied || initial),
+      ...assetContext(),
+      widget_id: controls.get("widget_id").value,
+      layer_name: controls.get("layer_name").value,
       ready,
       pathname: location.pathname,
     });
@@ -281,6 +313,8 @@ function renderLoadedConfig() {
     viewer.error(`Could not read Didomi.getConfig(): ${error.message}`);
     troubleshooting.update(undefined, {
       ...(applied || initial),
+      widget_id: controls.get("widget_id").value,
+      layer_name: controls.get("layer_name").value,
       ready,
       pathname: location.pathname,
     });
@@ -328,7 +362,7 @@ document.querySelector("#show-widget").addEventListener("click", async () => {
       throw new Error("Widget controls are unavailable in the loaded SDK.");
     }
     await Promise.race([
-      window.Didomi.widgets.show(widgetOptions(applied)),
+      window.Didomi.widgets.show(widgetOptions(stateFromForm())),
       new Promise((_, reject) => {
         timeout = setTimeout(
           () =>
@@ -393,6 +427,27 @@ document.querySelector("#hide-preview").addEventListener("click", () =>
     }
   }),
 );
+// Native widget dialogs live in the browser's top layer, above any z-index.
+// Keep an exit available even when their backdrop covers the preview button.
+window.addEventListener(
+  "keydown",
+  (event) => {
+    const hide = document.querySelector("#hide-preview");
+    if (
+      hide.hidden ||
+      event.repeat ||
+      !event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      (event.code !== "KeyH" && event.key.toLowerCase() !== "h")
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    hide.click();
+  },
+  true,
+);
 for (const button of document.querySelectorAll("[data-reset-status]")) {
   button.addEventListener("click", () =>
     runAction(async () => {
@@ -456,7 +511,10 @@ async function start() {
       ])
         window.Didomi.on(event, renderRuntime);
     }
-    const diagnostics = widgetDiagnostics(window.Didomi?.getConfig?.());
+    const diagnostics = widgetDiagnostics(
+      window.Didomi?.getConfig?.(),
+      assetContext(),
+    );
     if (!window.Didomi?.widgets) {
       message(
         "SDK ready, but the widgets API is unavailable. Verify the deployment and SDK version.",
@@ -469,7 +527,7 @@ async function start() {
       );
     } else if (diagnostics.missingBundleUrls.length) {
       message(
-        `SDK ready, but these widgets have no bundle URL: ${diagnostics.missingBundleUrls.join(", ")}. Verify Flow publishing and config delivery.`,
+        `SDK ready, but these widgets have no usable web display assets: ${diagnostics.missingBundleUrls.join(", ")}. Verify Flow publishing and config delivery.`,
         true,
       );
     } else {

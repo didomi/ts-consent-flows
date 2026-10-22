@@ -1,4 +1,5 @@
 // Heuristic checks of the publicly delivered config, not a publishing validator.
+import { inspectWidgetAssets } from "./flows-widget-assets.mjs";
 const isObject = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 const has = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
@@ -98,34 +99,22 @@ export function checkConfig(config, state = {}) {
       );
       continue;
     }
-    const url =
-      Array.isArray(definition.bundleUrls) && definition.bundleUrls.length
-        ? definition.bundleUrls[0]
-        : definition.bundleUrl;
-    if (!url) {
+    const assets = inspectWidgetAssets(definition, state);
+    for (const issue of assets.issues) {
+      const oldFormat = issue.code === "old-format";
       add(
-        `widget-bundle-${id}`,
-        "error",
-        "Widget has no usable bundle URL",
-        `Widget ${id}${definition.versionId ? " has a version reference but" : ""} has neither a usable bundleUrls[0] nor bundleUrl.`,
-        "In Flows → Privacy Widgets, confirm the intended widget is assigned and verify a successful publication to the environment selected here. If those are already correct, this finding does not establish an editor mistake: contact support to investigate missing published display assets. No arbitrary widget edit or manual asset URL is required.",
+        `widget-${issue.code === "invalid" ? "url" : "bundle"}-${id}`,
+        oldFormat ? "info" : assets.loadable ? "warning" : "error",
+        oldFormat
+          ? "Widget uses the older bundle URL format"
+          : issue.code === "invalid"
+            ? "Widget display asset URL is invalid"
+            : issue.code === "legacy"
+              ? "Widget has no usable legacy artifact"
+              : "Widget has no usable web display asset",
+        `Widget ${id}: ${issue.detail}`,
+        "In Flows → Privacy Widgets, confirm the intended widget is assigned and verify a successful publication to the environment selected here. Check artifacts.web for the SDK language (or the widget defaultLanguage), including modern and legacy bundles. If a normal window and a private window differ, retry with a new Cache key or clear the browser cache: a cached loader can pair an older SDK with a newer config format. Reset status clears consent, not the loader cache. If publication and assignments are correct, this finding does not establish an editor mistake; contact support with the loaded config and SDK script URL. Do not invent or paste asset URLs.",
       );
-    } else {
-      try {
-        if (
-          typeof url !== "string" ||
-          !["http:", "https:"].includes(new URL(url).protocol)
-        )
-          throw new Error();
-      } catch {
-        add(
-          `widget-url-${id}`,
-          "error",
-          "Widget bundle URL is invalid",
-          `Widget ${id} does not have an absolute HTTP(S) asset URL.`,
-          "Save the widget in its editor, apply any offered updates in Flows → Privacy Widgets, and publish the Flow again. Retest without custom JSON; contact support if a published asset is still invalid.",
-        );
-      }
     }
   }
   if (config.defaultWidgetId && !has(catalog, config.defaultWidgetId))
@@ -141,7 +130,7 @@ export function checkConfig(config, state = {}) {
       "requested-widget",
       "warning",
       "Requested widget is absent from the catalog",
-      `The applied Widget ID is ${state.widget_id}.`,
+      `The selected Widget ID is ${state.widget_id}.`,
       "Compare this Widget ID with the widgets assigned under Flows → Privacy Widgets for the selected regulation. Use an assigned ID, or clear this sandbox input to test the Flow’s normal selection.",
     );
   if (config.rules !== undefined && !Array.isArray(config.rules))
@@ -236,6 +225,14 @@ export function checkConfig(config, state = {}) {
       "brand is present without a brandConfigId.",
       "In Brand Manager, save the intended profile and theme. In Flows → Privacy Widgets, select the intended brand, apply offered updates, save, and publish. Clear unintended brand overrides in this sandbox.",
     );
+  else if (isObject(config.brand) && !isObject(config.brand.brand_config))
+    add(
+      "brand-snapshot",
+      "warning",
+      "Brand has no published theme snapshot",
+      "brand contains a reference but no brand_config object with the published theme. Current widget bundles receive config.brand directly from the SDK.",
+      "Clear sandbox Brand config ID / Brand version ID overrides and custom brand JSON, then reload to compare the published snapshot. The brand query override can replace the snapshot with a reference. In Brand Manager and the Flow, verify the pinned brand and publish again if needed; the sandbox cannot resolve or reconstruct its theme.",
+    );
   if (
     state.didomi_country &&
     state.country &&
@@ -255,8 +252,8 @@ export function eventSuggestion(entry) {
   const message = `${entry.message} ${entry.detail}`;
   if (entry.kind === "Content security policy")
     return "Check the page’s Content Security Policy and allow the required SDK and widget resource origins.";
-  if (/no bundle url|invalid bundle url/i.test(message))
-    return "Check the assignment in Flows → Privacy Widgets and confirm successful publication to the selected environment. If both are correct, contact support to investigate the published display assets. This message alone does not establish an editor mistake; do not make arbitrary edits or paste a guessed asset URL.";
+  if (/no bundle url|invalid bundle url|no loadable bundle/i.test(message))
+    return "Check artifacts.web for the SDK language or widget defaultLanguage, and the modern / legacy artifact for the loaded SDK build. Check the assignment in Flows → Privacy Widgets and confirm publication. An old cached loader can load an SDK that expects a different config format: try a new Cache key or clear the browser cache; Reset status only clears consent. If it persists, contact support with the loaded config and SDK script URL. Do not paste a guessed asset URL.";
   if (/no widgets are configured|not found in catalog/i.test(message))
     return "In Flows → Regulations, check territory coverage. In Flows → Privacy Widgets, check assignments and the default widget, then publish to the selected environment. Compare any explicit sandbox Widget ID with those assignments.";
   if (

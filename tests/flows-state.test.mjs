@@ -16,24 +16,24 @@ const state = (overrides) => ({
 });
 
 test("widget diagnostics distinguish version references from renderable bundles", () => {
-  assert.deepEqual(
-    widgetDiagnostics({
-      widgets: {
-        unresolved: { versionId: "v1" },
-        single: { bundleUrl: "https://example.com/widget.js" },
-        multiple: { bundleUrls: ["https://example.com/widget.js"] },
-        emptyFirst: { bundleUrls: ["", "legacy.js"], bundleUrl: "fallback.js" },
-      },
-      rules: [{}],
-      defaultWidgetId: "unresolved",
-    }),
-    {
-      widgetIds: ["unresolved", "single", "multiple", "emptyFirst"],
-      defaultWidgetId: "unresolved",
-      ruleCount: 1,
-      missingBundleUrls: ["unresolved", "emptyFirst"],
+  const { widgetAssets, ...diagnostics } = widgetDiagnostics({
+    widgets: {
+      unresolved: { versionId: "v1" },
+      single: { bundleUrl: "https://example.com/widget.js" },
+      multiple: { bundleUrls: ["https://example.com/widget.js"] },
+      emptyFirst: { bundleUrls: ["", "legacy.js"], bundleUrl: "fallback.js" },
     },
-  );
+    rules: [{}],
+    defaultWidgetId: "unresolved",
+  });
+  assert.equal(widgetAssets.single.loadable, true);
+  assert.equal(widgetAssets.unresolved.loadable, false);
+  assert.deepEqual(diagnostics, {
+    widgetIds: ["unresolved", "single", "multiple", "emptyFirst"],
+    defaultWidgetId: "unresolved",
+    ruleCount: 1,
+    missingBundleUrls: ["unresolved", "emptyFirst"],
+  });
   assert.deepEqual(widgetDiagnostics(undefined).widgetIds, []);
 });
 

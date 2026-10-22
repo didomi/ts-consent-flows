@@ -1,4 +1,5 @@
 // Query helpers for the public Consent Flows sandbox.
+import { inspectWidgetAssets } from "./flows-widget-assets.mjs";
 const field = (key, label, hint = "", options) => ({
   key,
   label,
@@ -78,12 +79,12 @@ export const groups = [
       field(
         "brand",
         "Brand config ID",
-        "Tries a different brand for this test, using its brand configuration ID. Leave blank to keep the Flow’s brand. This changes the returned configuration for this test, not the saved brand selection in Console.",
+        "Advanced: sends a brand reference as brandConfigId. The loader override can replace the published brand snapshot with a reference only; current widget bundles need the profile and theme snapshot. Leave blank to keep the Flow’s published brand. Compare the loaded config after overriding; this does not edit Console.",
       ),
       field(
         "brand_version",
         "Brand version ID",
-        "Tests a specific saved version of the brand entered above. Leave blank to use that brand’s latest version. Requires a Brand config ID; without a brand override, the Flow keeps its published brand reference.",
+        "Pins versionId on the brand reference above. Requires a Brand config ID. This reference alone does not supply the theme snapshot that current widget bundles need. Leave both brand fields blank to keep the Flow’s published brand snapshot.",
       ),
       {
         ...field(
@@ -212,7 +213,7 @@ export const groups = [
       field(
         "apply_conf",
         "Apply custom JSON",
-        "Applies the custom configuration entered below when the page reloads. Leave off to keep the JSON in your share link without applying it. More specific inputs above take priority over conflicting values.",
+        "Set to On, then click Apply and reload to use the JSON below. Off keeps the JSON in your share link without applying it. More specific inputs above take priority over conflicting values.",
         ["", "1"],
       ),
       field(
@@ -428,20 +429,25 @@ export function widgetOptions(state) {
   return Object.keys(options).length ? options : undefined;
 }
 
-export function widgetDiagnostics(config) {
-  const widgets = Object.entries(config?.widgets || {});
+export function widgetDiagnostics(config, context = {}) {
+  const catalog = config?.widgets;
+  const widgets =
+    catalog && typeof catalog === "object" && !Array.isArray(catalog)
+      ? Object.entries(catalog)
+      : [];
+  const assets = Object.fromEntries(
+    widgets.map(([id, definition]) => [
+      id,
+      inspectWidgetAssets(definition, context),
+    ]),
+  );
   return {
     widgetIds: widgets.map(([id]) => id),
     defaultWidgetId: config?.defaultWidgetId ?? null,
     ruleCount: Array.isArray(config?.rules) ? config.rules.length : 0,
     missingBundleUrls: widgets
-      .filter(([, definition]) => {
-        const url =
-          Array.isArray(definition?.bundleUrls) && definition.bundleUrls.length
-            ? definition.bundleUrls[0]
-            : definition?.bundleUrl;
-        return !url;
-      })
+      .filter(([id]) => !assets[id].loadable)
       .map(([id]) => id),
+    widgetAssets: assets,
   };
 }

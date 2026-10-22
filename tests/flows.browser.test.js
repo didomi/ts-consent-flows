@@ -196,6 +196,55 @@ test("Hide preview dismisses a fallback notice without resetting or writing cons
   await page.getByRole("button", { name: "Hide preview", exact: true }).click();
 });
 
+test("Hide preview shortcut escapes a native modal widget without changing consent", async ({
+  page,
+}) => {
+  await mockSDK(page);
+  await page.goto("/index.html?apiKey=key&flow_id=flow#test");
+  await page.getByRole("button", { name: "Show widget", exact: true }).click();
+  await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.id = "didomi-host";
+    const shadow = host.attachShadow({ mode: "open" });
+    const dialog = document.createElement("dialog");
+    dialog.innerHTML = "<button>Widget choice</button>";
+    shadow.append(dialog);
+    document.body.append(host);
+    dialog.showModal();
+    const hide = window.Didomi.widgets.hide;
+    window.Didomi.widgets.hide = () => {
+      dialog.close();
+      hide();
+    };
+  });
+  expect(
+    await page.evaluate(() => {
+      const button = document.querySelector("#hide-preview");
+      const rect = button.getBoundingClientRect();
+      return (
+        document.elementFromPoint(
+          rect.x + rect.width / 2,
+          rect.y + rect.height / 2,
+        ) === button
+      );
+    }),
+  ).toBe(false);
+  await page.keyboard.press("Alt+h");
+  await expect(page.locator("#hide-preview")).toBeHidden();
+  expect(await page.evaluate(() => window.testCalls)).toEqual([
+    ["show", undefined],
+    ["hide"],
+  ]);
+  expect(await page.evaluate(() => localStorage.getItem("test-reset"))).toBe(
+    null,
+  );
+  await page.getByRole("tab", { name: "1. Setup", exact: true }).click();
+  await expect(page.locator("#tab-setup")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
 test("Force CTV UI initializes the SDK with its app flag while requesting a web Flow", async ({
   page,
 }) => {
@@ -226,13 +275,112 @@ test("ready SDK with unresolved widget bundles reports the live Flow failure vis
   });
   await page.goto("/index.html?apiKey=key&flow_id=flow");
   await expect(page.locator("#status")).toContainText(
-    "widgets have no bundle URL: testWidget",
+    "widgets have no usable web display assets: testWidget",
   );
   await expect(page.locator("#status")).toHaveAttribute("data-error", "true");
   await expect(page.locator("#runtime-info")).toContainText(
     '"missingBundleUrls"',
   );
 });
+
+for (const sdkBuild of ["modern", "legacy"]) {
+  test(`published artifacts and brand snapshots pass diagnostics for the ${sdkBuild} SDK`, async ({
+    page,
+  }) => {
+    const config = {
+      app: { apiKey: "key" },
+      regulation: { name: "gdpr" },
+      widgets: {
+        testWidget: {
+          versionId: "v1",
+          defaultLanguage: "en",
+          artifacts: {
+            web: {
+              en: {},
+              fr: {
+                modern: "https://example.com/widget.fr.js",
+                legacy: {
+                  url: "https://example.com/classic.fr.js",
+                  globalName: "PublishedWidget",
+                },
+              },
+            },
+          },
+        },
+      },
+      defaultWidgetId: "testWidget",
+      rules: [{ id: "rule", targetWidgetId: "testWidget", scenarios: [] }],
+      brand: {
+        brandConfigId: "brand",
+        versionId: "brand-version",
+        name: "Example",
+        brand_config: {
+          id: "brand-version",
+          css_tokens: {},
+          component_props: {},
+        },
+      },
+    };
+    await mockSDK(
+      page,
+      config,
+      `
+      const host = document.createElement('div');
+      host.id = 'didomi-host';
+      host.lang = 'fr';
+      document.body.append(host);
+      const sdk = document.createElement('script');
+      sdk.type = 'application/json';
+      sdk.src = 'https://sdk.privacy-center.org/sdk/test-build/${sdkBuild}/sdk.test-build.js';
+      document.head.append(sdk);
+    `,
+    );
+    // The request language and CTV UI override must not override observed runtime context.
+    await page.goto(
+      "/index.html?apiKey=key&flow_id=flow&lang=de&ctv_ui=1#test",
+    );
+    await expect(page.locator("#status")).toContainText("SDK ready");
+    await expect(page.locator("#status")).toHaveAttribute(
+      "data-error",
+      "false",
+    );
+    await expect(page.locator("#config-findings")).not.toContainText(
+      "Widget has no usable",
+    );
+    await expect(page.locator("#config-findings")).not.toContainText(
+      "Brand has no published",
+    );
+    const runtime = JSON.parse(
+      await page.locator("#runtime-info").textContent(),
+    );
+    expect(runtime.missingBundleUrls).toEqual([]);
+    expect(runtime.assetContext).toMatchObject({ language: "fr", sdkBuild });
+    expect(runtime.widgetAssets.testWidget.language).toBe("fr");
+    await page
+      .getByRole("button", { name: "Show widget", exact: true })
+      .click();
+    expect(await page.evaluate(() => window.testCalls)).toEqual([
+      ["show", undefined],
+    ]);
+    // A reference-only brand override needs different guidance from a missing brand ID.
+    await page.evaluate((config) => {
+      config.brand = { brandConfigId: "brand", versionId: "brand-version" };
+      window.Didomi.getConfig = () => config;
+    }, config);
+    await page
+      .getByRole("tab", { name: "3. Configuration", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Refresh loaded config", exact: true })
+      .click();
+    await expect(page.locator("#config-findings")).toContainText(
+      "Brand has no published theme snapshot",
+    );
+    await expect(page.locator("#config-findings")).toContainText(
+      "override can replace the snapshot",
+    );
+  });
+}
 
 test("empty form is usable, incomplete links hydrate, and SDK is not requested", async ({
   page,
@@ -326,8 +474,10 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
   await page.getByLabel("Apply custom JSON", { exact: true }).selectOption("1");
   await page.getByLabel("Age", { exact: true }).fill("18");
   await page.getByLabel("Load GPP stub", { exact: true }).selectOption("1");
+  await page.getByRole("tab", { name: "2. Test & troubleshoot" }).click();
   await page.getByLabel("Widget ID", { exact: true }).fill("widget");
   await page.getByLabel("Layer name", { exact: true }).fill("preferences");
+  await openSetup(page);
   await expect(page.locator("#loader-url")).toContainText(
     "environment=staging",
   );
@@ -389,6 +539,97 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
   expect(errors).toEqual([]);
 });
 
+test("widget selections can be changed in the test tab and restored from share links", async ({
+  page,
+}) => {
+  await mockSDK(page);
+  let loaderCount = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/loader.js")) loaderCount++;
+  });
+  await page.goto(
+    "/index.html?apiKey=key&flow_id=flow&widget_id=original&layer_name=first#test",
+  );
+  const widget = page.getByLabel("Widget ID", { exact: true });
+  const layer = page.getByLabel("Layer name", { exact: true });
+  await expect(widget).toBeVisible();
+  await expect(layer).toBeVisible();
+  await expect(widget).toHaveValue("original");
+  await expect(layer).toHaveValue("first");
+  const show = page.getByRole("button", { name: "Show widget", exact: true });
+  await show.click();
+  await widget.fill("another");
+  await layer.fill("preferences");
+  await show.click();
+  expect(await page.evaluate(() => window.testCalls)).toEqual([
+    ["show", { widgetId: "original", layerName: "first" }],
+    ["show", { widgetId: "another", layerName: "preferences" }],
+  ]);
+  expect(loaderCount).toBe(1);
+  const shared = await page.locator("#share-url").inputValue();
+  expect(new URL(shared).searchParams.get("widget_id")).toBe("another");
+  expect(new URL(shared).searchParams.get("layer_name")).toBe("preferences");
+  await page.goto(shared);
+  await expect(widget).toHaveValue("another");
+  await expect(layer).toHaveValue("preferences");
+  await widget.fill("");
+  await show.click();
+  await layer.fill("");
+  await show.click();
+  expect(await page.evaluate(() => window.testCalls)).toEqual([
+    ["show", { layerName: "preferences" }],
+    ["show", undefined],
+  ]);
+  expect(new URL(page.url()).searchParams.has("widget_id")).toBe(false);
+  expect(new URL(page.url()).searchParams.has("layer_name")).toBe(false);
+  expect(loaderCount).toBe(2);
+});
+
+test("custom JSON has an adjacent On/Off control and applies only after enabling and reloading", async ({
+  page,
+}) => {
+  await mockSDK(page);
+  await page.goto("/index.html?apiKey=key&flow_id=flow");
+  await openSetup(page);
+  const toggle = page.getByLabel("Apply custom JSON", { exact: true });
+  const editor = page.getByLabel("Custom didomiConfig JSON", { exact: true });
+  await expect(toggle).toHaveValue("");
+  await expect(toggle.locator("option:checked")).toHaveText("Off");
+  await expect(page.locator('[id="apply_conf-help"]')).toContainText(
+    "Set to On, then click Apply and reload",
+  );
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const controlBox = await toggle.boundingBox();
+    const editorBox = await editor.boundingBox();
+    expect(controlBox.y + controlBox.height).toBeLessThan(editorBox.y);
+    expect(controlBox.x).toBe(editorBox.x);
+    expect(controlBox.width).toBe(editorBox.width);
+  }
+  await editor.fill('{"testOverride":"saved"}');
+  const apply = page.getByRole("button", {
+    name: "Apply and reload",
+    exact: true,
+  });
+  await apply.click();
+  await expect(page.locator("#status")).toContainText("SDK ready");
+  expect(
+    await page.evaluate(() => window.testBootstrap.config.testOverride),
+  ).toBeUndefined();
+  await openSetup(page);
+  await expect(editor).toHaveValue('{"testOverride":"saved"}');
+  await toggle.selectOption("1");
+  await expect(toggle.locator("option:checked")).toHaveText("On");
+  expect(
+    await page.evaluate(() => window.testBootstrap.config.testOverride),
+  ).toBeUndefined();
+  await apply.click();
+  await expect(page.locator("#status")).toContainText("SDK ready");
+  expect(
+    await page.evaluate(() => window.testBootstrap.config.testOverride),
+  ).toBe("saved");
+});
+
 test("malformed shared JSON blocks SDK startup and can be corrected", async ({
   page,
 }) => {
@@ -432,7 +673,9 @@ test("mobile page fits the viewport and every input has an accessible label", as
   ).toBe(true);
   expect(
     await page
-      .locator("#flow-form input, #flow-form select, #flow-form textarea")
+      .locator(
+        '#sandbox input[form="flow-form"], #sandbox select[form="flow-form"], #sandbox textarea[form="flow-form"]',
+      )
       .evaluateAll((inputs) =>
         inputs.every((input) => input.labels.length > 0),
       ),
@@ -550,7 +793,7 @@ test("troubleshooting captures startup messages, preserves console forwarding, a
     "No warnings or errors captured",
   );
   await expect(page.locator("#config-findings")).toContainText(
-    "Widget has no usable bundle URL",
+    "Widget has no usable web display asset",
   );
 });
 
