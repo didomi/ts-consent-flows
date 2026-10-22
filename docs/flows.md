@@ -67,6 +67,8 @@ This does not redesign a web widget, change the published Flow platform, or forc
 
 ## Scope of troubleshooting
 
+While a CTV preview is visible, its host fills the viewport above the sandbox tabs and form controls. Use Hide preview or Alt+H (Option+H on Mac) to return to the workspace. This keeps the widget's full-screen layout separate from the testing controls without changing the published widget.
+
 If Show widget fails or finishes without displaying a widget, a dialog explains the problem and offers a Read troubleshooting button. This opens tab 2 and focuses the Troubleshooting section. Close or Escape dismisses the dialog so you can adjust settings and try again.
 
 Diagnostics use the config publicly returned to this browser and messages observed during the current page load. They are heuristic checks, not a full schema validator or an inspection of your Console account. Start in Console: review Flow regulation coverage, assigned widgets and display rules, saved brand settings, and successful publication to the selected environment. The page cannot confirm unsaved drafts, permissions, or publication status.
