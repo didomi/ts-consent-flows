@@ -196,6 +196,55 @@ test("Hide preview dismisses a fallback notice without resetting or writing cons
   await page.getByRole("button", { name: "Hide preview", exact: true }).click();
 });
 
+test("Hide preview shortcut escapes a native modal widget without changing consent", async ({
+  page,
+}) => {
+  await mockSDK(page);
+  await page.goto("/index.html?apiKey=key&flow_id=flow#test");
+  await page.getByRole("button", { name: "Show widget", exact: true }).click();
+  await page.evaluate(() => {
+    const host = document.createElement("div");
+    host.id = "didomi-host";
+    const shadow = host.attachShadow({ mode: "open" });
+    const dialog = document.createElement("dialog");
+    dialog.innerHTML = "<button>Widget choice</button>";
+    shadow.append(dialog);
+    document.body.append(host);
+    dialog.showModal();
+    const hide = window.Didomi.widgets.hide;
+    window.Didomi.widgets.hide = () => {
+      dialog.close();
+      hide();
+    };
+  });
+  expect(
+    await page.evaluate(() => {
+      const button = document.querySelector("#hide-preview");
+      const rect = button.getBoundingClientRect();
+      return (
+        document.elementFromPoint(
+          rect.x + rect.width / 2,
+          rect.y + rect.height / 2,
+        ) === button
+      );
+    }),
+  ).toBe(false);
+  await page.keyboard.press("Alt+h");
+  await expect(page.locator("#hide-preview")).toBeHidden();
+  expect(await page.evaluate(() => window.testCalls)).toEqual([
+    ["show", undefined],
+    ["hide"],
+  ]);
+  expect(await page.evaluate(() => localStorage.getItem("test-reset"))).toBe(
+    null,
+  );
+  await page.getByRole("tab", { name: "1. Setup", exact: true }).click();
+  await expect(page.locator("#tab-setup")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
 test("Force CTV UI initializes the SDK with its app flag while requesting a web Flow", async ({
   page,
 }) => {

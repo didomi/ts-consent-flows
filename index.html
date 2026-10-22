@@ -474,7 +474,15 @@
   </head>
   <body>
     <main id="sandbox">
-      <button id="hide-preview" type="button" hidden>Hide preview</button>
+      <button
+        id="hide-preview"
+        type="button"
+        aria-keyshortcuts="Alt+h"
+        title="Hide preview (Alt+H)"
+        hidden
+      >
+        Hide preview
+      </button>
       <header>
         <span class="brand">Didomi · Developer sandbox</span>
         <nav>
@@ -489,6 +497,10 @@
           Load a published Flow, override its delivery settings, and inspect its
           privacy widgets. Changes update your share link. Apply and reload to
           run them.
+        </p>
+        <p class="hint">
+          While a preview is open, press <kbd>Alt+H</kbd> (Option+H on Mac) to
+          hide it and return to the sandbox controls.
         </p>
       </div>
       <div id="status" role="status" aria-live="polite">

@@ -427,6 +427,27 @@ document.querySelector("#hide-preview").addEventListener("click", () =>
     }
   }),
 );
+// Native widget dialogs live in the browser's top layer, above any z-index.
+// Keep an exit available even when their backdrop covers the preview button.
+window.addEventListener(
+  "keydown",
+  (event) => {
+    const hide = document.querySelector("#hide-preview");
+    if (
+      hide.hidden ||
+      event.repeat ||
+      !event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      (event.code !== "KeyH" && event.key.toLowerCase() !== "h")
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    hide.click();
+  },
+  true,
+);
 for (const button of document.querySelectorAll("[data-reset-status]")) {
   button.addEventListener("click", () =>
     runAction(async () => {

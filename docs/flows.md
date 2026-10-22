@@ -18,6 +18,8 @@ Tabs support keyboard arrows, Home and End. The fragments `#setup`, `#test`, and
 
 In Setup → SDK configuration and tools, **Apply custom JSON** sits directly above the custom JSON editor. Set it to **On**, then click **Apply and reload** to apply the override. **Off** keeps the JSON in the share link without applying it.
 
+Native modal widget dialogs can cover the floating Hide preview button regardless of its z-index. Press **Alt+H** (**Option+H** on Mac) to invoke the same hide action and return to the sandbox controls. This dismisses the preview without recording a consent choice or resetting consent.
+
 ## Query parameters
 
 | Parameters                                                                                                                                         | Behavior                                                                                                                                                                                                                                                                              |
