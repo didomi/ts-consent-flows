@@ -467,9 +467,9 @@
       #sandbox #widget-problem::backdrop {
         background: rgb(0 0 0 / 55%);
       }
-      /* CTV widgets can use an absolutely positioned full-screen layout.
+      /* Widgets on either platform can use an absolutely positioned full-screen layout.
          Give it a viewport-sized host above the workspace's sticky controls. */
-      #didomi-host[data-sandbox-ctv-preview] {
+      #didomi-host[data-sandbox-preview-visible] {
         position: fixed;
         inset: 0;
         z-index: 2147483646;

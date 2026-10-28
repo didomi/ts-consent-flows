@@ -243,15 +243,7 @@ function renderRuntime() {
   );
   document
     .querySelector("#didomi-host")
-    ?.toggleAttribute(
-      "data-sandbox-ctv-preview",
-      previewVisible &&
-        Boolean(
-          config?.app?.ctvEnabled ||
-            applied.platform === "ctv" ||
-            applied.ctv_ui === "1",
-        ),
-    );
+    ?.toggleAttribute("data-sandbox-preview-visible", previewVisible);
   document.querySelector("#hide-preview").hidden = !previewVisible;
   if (previewVisible)
     document
