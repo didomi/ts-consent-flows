@@ -11,8 +11,12 @@ import {
 } from "./flows-state.mjs";
 import { createJSONViewer } from "./flows-json-viewer.mjs";
 import { createTroubleshooting } from "./flows-troubleshooting.mjs";
-import { createConsentStrings } from "./flows-consent-strings.mjs";
+import {
+  createConsentStrings,
+  hasStoredChoice,
+} from "./flows-consent-strings.mjs";
 import { createPathTest } from "./flows-path-test.mjs";
+import { createDataLayerPanel } from "./flows-data-layer.mjs";
 import { createWorkspace } from "./flows-layout.mjs";
 
 const form = document.querySelector("#flow-form");
@@ -20,8 +24,25 @@ const status = document.querySelector("#status");
 const info = document.querySelector("#runtime-info");
 const consentStrings = createConsentStrings(
   document.querySelector("#consent-strings"),
+  (snapshot) => {
+    let stored = false;
+    try {
+      stored = hasStoredChoice(
+        snapshot,
+        window.Didomi?.getConfig?.(),
+        window.Didomi?.shouldUserStatusBeCollected?.(),
+        performance.timeOrigin,
+      );
+    } catch {
+      /* Do not infer a saved choice when the SDK cannot confirm it. */
+    }
+    document.querySelector("#stored-consent-banner").hidden = !stored;
+  },
 );
 const pathTest = createPathTest(document.querySelector("#path-test"));
+const dataLayer = createDataLayerPanel(
+  document.querySelector("#data-layer-diagnostics"),
+);
 const controls = new Map();
 const widgetKeys = new Set(["widget_id", "layer_name"]);
 const initial = readState(new URLSearchParams(location.search));
@@ -236,6 +257,7 @@ function renderRuntime() {
   const config = window.Didomi?.getConfig?.();
   const context = assetContext();
   const diagnostics = widgetDiagnostics(config, context);
+  dataLayer.update(config, context);
   const visible = window.Didomi?.widgets?.isVisible?.();
   const noticeVisible = window.Didomi?.notice?.isVisible?.();
   const previewVisible = Boolean(
@@ -341,6 +363,13 @@ async function runAction(action) {
     window.flowDebugCapture?.record("SDK action", "error", error.message);
   }
 }
+document.querySelector("#show-stored-preview").addEventListener("click", () => {
+  workspace.activate("test");
+  document
+    .querySelector("#runtime-title")
+    .closest("details.test-section").open = true;
+  document.querySelector("#show-widget").click();
+});
 const widgetProblem = document.querySelector("#widget-problem");
 document
   .querySelector("#close-widget-problem")
@@ -352,6 +381,7 @@ document
     workspace.activate("test");
     history.replaceState(null, "", "#troubleshooting-title");
     const heading = document.querySelector("#troubleshooting-title");
+    heading.closest("details.test-section").open = true;
     heading.scrollIntoView({ block: "start", behavior: "smooth" });
     heading.focus({ preventScroll: true });
   });
@@ -486,6 +516,7 @@ async function start() {
   if (!preview(initial)) return;
   applied = initial;
   window.didomiConfig = buildConfig(applied);
+  window.flowDataLayerCapture?.configure(window.didomiConfig);
   const url = loaderURL(applied);
   window.didomiOnReady = window.didomiOnReady || [];
   window.didomiOnReady.push(() => {

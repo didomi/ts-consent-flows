@@ -32,9 +32,12 @@ export function createWorkspace() {
       hash === "test" ||
       hash === "troubleshooting-title" ||
       hash === "runtime-title"
-    )
+    ) {
       activate("test");
-    else if (hash.startsWith("setup-group-")) {
+      const heading = document.getElementById(hash);
+      const section = heading?.closest("details.test-section");
+      if (section) section.open = true;
+    } else if (hash.startsWith("setup-group-")) {
       activate("setup");
       const group = document.getElementById(hash);
       if (group) {

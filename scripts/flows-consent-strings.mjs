@@ -35,7 +35,20 @@ function readStoredDCS() {
   return { value, description };
 }
 
-export function createConsentStrings(section) {
+// A user ID or default consent string alone is not evidence of a saved choice.
+export function hasStoredChoice(status, config, shouldCollect, pageStarted) {
+  const updated = Date.parse(status?.updated || status?.created);
+  return (
+    shouldCollect === false &&
+    typeof status?.regulation === "string" &&
+    status.regulation !== "none" &&
+    status.regulation === config?.regulation?.name &&
+    Number.isFinite(updated) &&
+    updated < pageStarted
+  );
+}
+
+export function createConsentStrings(section, onSnapshot = () => {}) {
   const refresh = section.querySelector("#read-consent-strings");
   const feedback = section.querySelector("#consent-strings-status");
   const entries = [
@@ -68,13 +81,30 @@ export function createConsentStrings(section) {
       if (entry.decoder) entry.decoder.href = entry.decoderBase;
     }
   }
-  refresh.addEventListener("click", async () => {
+  let request = 0;
+  let timers = [];
+  const subscribed = new WeakSet();
+  async function readSnapshot() {
+    const sdk = window.Didomi;
+    if (typeof sdk?.getCurrentUserStatus !== "function") return;
+    const current = ++request;
+    let timeout;
     refresh.disabled = true;
     clear();
     feedback.textContent = "Reading current consent strings…";
     for (const entry of entries) entry.status.textContent = "Reading…";
     try {
-      const status = await window.Didomi.getCurrentUserStatus();
+      const status = await Promise.race([
+        sdk.getCurrentUserStatus(),
+        new Promise((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("The SDK did not respond in time.")),
+            5000,
+          );
+        }),
+      ]);
+      if (current !== request) return;
+      onSnapshot(status);
       for (const entry of entries) {
         let stored;
         if (entry.read) {
@@ -106,14 +136,31 @@ export function createConsentStrings(section) {
             ? `Returned by Didomi.getCurrentUserStatus().${entry.key}.`
             : `No ${entry.name} string was returned. This can be expected when ${entry.framework} is not enabled or does not apply. Check the regulation’s framework settings in Console and publish any changes, then reload.`;
       }
-      feedback.textContent = `Snapshot read at ${new Date().toLocaleTimeString()}. Refresh after changing consent choices to see the latest values.`;
+      feedback.textContent = `Snapshot read at ${new Date().toLocaleTimeString()}. Strings update automatically after consent changes; Refresh is available for a manual check.`;
     } catch (error) {
+      if (current !== request) return;
       clear();
       for (const entry of entries) entry.status.textContent = "Not read.";
       feedback.textContent = `Could not read consent strings: ${error?.message || "the SDK did not return a user status"}. Check Troubleshooting on this tab.`;
     } finally {
-      refresh.disabled = false;
+      clearTimeout(timeout);
+      if (current === request) refresh.disabled = false;
     }
+  }
+  function scheduleRead() {
+    // Invalidate an older in-flight snapshot immediately. Storage writes and
+    // framework encoding may settle after the public consent event fires.
+    request++;
+    timers.forEach(clearTimeout);
+    timers = [
+      setTimeout(readSnapshot, 50),
+      setTimeout(readSnapshot, 500),
+      setTimeout(readSnapshot, 1500),
+    ];
+  }
+  refresh.addEventListener("click", () => {
+    timers.forEach(clearTimeout);
+    readSnapshot();
   });
   for (const entry of entries) {
     entry.copy.addEventListener("click", async () => {
@@ -134,7 +181,19 @@ export function createConsentStrings(section) {
         typeof window.Didomi?.getCurrentUserStatus !== "function";
       feedback.textContent = refresh.disabled
         ? "The loaded SDK does not expose getCurrentUserStatus(). Check the SDK version and Troubleshooting."
-        : "Ready to read the current strings. Reading does not change consent choices.";
+        : "Reading consent strings automatically. Reading does not change consent choices.";
+      const sdk = window.Didomi;
+      if (sdk && typeof sdk.on === "function" && !subscribed.has(sdk)) {
+        subscribed.add(sdk);
+        for (const event of [
+          "consent.changed",
+          "notice.hidden",
+          "preferences.hidden",
+          "widget.hidden",
+        ])
+          sdk.on(event, scheduleRead);
+      }
+      if (!refresh.disabled) scheduleRead();
     },
   };
 }

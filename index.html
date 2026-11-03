@@ -6,6 +6,7 @@
     <meta name="x-brand-status" content="preview" />
     <title>Didomi Flows Sandbox</title>
     <script src="scripts/flows-capture.js"></script>
+    <script src="scripts/flows-data-layer-capture.js"></script>
     <link rel="icon" href="assets/favicon.ico" />
     <link
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap"
@@ -128,16 +129,6 @@
         overflow: hidden;
         clip-path: inset(50%);
       }
-      :where(#sandbox) .test-layout {
-        display: grid;
-        grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr);
-        gap: 32px;
-        align-items: start;
-      }
-      :where(#sandbox) .test-layout > .runtime:first-child {
-        position: sticky;
-        top: 24px;
-      }
       :where(#sandbox) #runtime-summary {
         display: grid;
         grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
@@ -153,8 +144,7 @@
         font-weight: 600;
         overflow-wrap: anywhere;
       }
-      :where(#sandbox) [role="tabpanel"] > .runtime,
-      :where(#sandbox) .test-layout > .runtime {
+      :where(#sandbox) [role="tabpanel"] > .runtime {
         margin-top: 0;
       }
       :where(#sandbox) #config-panel > section {
@@ -404,12 +394,10 @@
         }
       }
       @media (max-width: 960px) {
-        :where(#sandbox) .setup-layout,
-        :where(#sandbox) .test-layout {
+        :where(#sandbox) .setup-layout {
           grid-template-columns: minmax(0, 1fr);
         }
-        :where(#sandbox) .setup-sidebar,
-        :where(#sandbox) .test-layout > .runtime:first-child {
+        :where(#sandbox) .setup-sidebar {
           position: static;
         }
         :where(#sandbox) #setup-navigation {
@@ -467,6 +455,65 @@
       #sandbox #widget-problem::backdrop {
         background: rgb(0 0 0 / 55%);
       }
+      #sandbox #stored-consent-banner {
+        border: 1px solid var(--sandbox-border);
+        border-left: 4px solid var(--sandbox-blue);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 16px 0;
+        background: var(--sandbox-pale);
+      }
+      #sandbox #stored-consent-banner p {
+        margin: 12px 0;
+      }
+      #sandbox .test-section {
+        border: 1px solid var(--sandbox-border);
+        border-radius: 12px;
+        margin: 16px 0;
+        background: white;
+      }
+      #sandbox .test-section > summary {
+        padding: 20px 24px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      #sandbox .test-section > summary h2,
+      #sandbox .test-section > summary h3 {
+        display: inline;
+        font-size: 20px;
+        margin: 0;
+      }
+      #sandbox .test-section > section,
+      #sandbox #path-test > :not(summary) {
+        margin: 16px 24px 24px;
+      }
+      #sandbox .test-section > summary:focus-visible {
+        outline: 3px solid var(--sandbox-blue);
+        outline-offset: -3px;
+      }
+
+      #sandbox .data-layer-table {
+        overflow-x: auto;
+      }
+      #sandbox .data-layer-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      #sandbox .data-layer-table th,
+      #sandbox .data-layer-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--sandbox-border);
+      }
+      #sandbox #data-layer-history {
+        max-height: 560px;
+        overflow: auto;
+        padding-left: 24px;
+      }
+      #sandbox #data-layer-history summary {
+        overflow-wrap: anywhere;
+      }
       /* Widgets on either platform can use an absolutely positioned full-screen layout.
          Give it a viewport-sized host above the workspace's sticky controls. */
       #didomi-host[data-sandbox-preview-visible] {
@@ -513,6 +560,34 @@
       <div id="status" role="status" aria-live="polite">
         Enter an API key and Flow ID to start.
       </div>
+      <aside
+        id="stored-consent-banner"
+        hidden
+        aria-labelledby="stored-consent-title"
+      >
+        <strong id="stored-consent-title"
+          >Existing consent choice detected</strong
+        >
+        <p>
+          The SDK is using an existing consent choice for this loaded Flow and
+          regulation. Available consent data is loaded automatically. Use Reset
+          status for a fresh test, or Show widget again to preview the notice
+          with the current choice.
+        </p>
+        <div class="actions">
+          <button
+            id="reset-stored-consent"
+            data-reset-status
+            type="button"
+            disabled
+          >
+            Reset status
+          </button>
+          <button id="show-stored-preview" type="button">
+            Show widget again
+          </button>
+        </div>
+      </aside>
       <div class="workspace-tabs" role="tablist" aria-label="Sandbox workspace">
         <button
           id="tab-setup"
@@ -583,9 +658,12 @@
         </div>
       </div>
       <div id="test-panel" role="tabpanel" aria-labelledby="tab-test" hidden>
-        <div class="test-layout">
-          <section class="runtime" aria-labelledby="runtime-title">
+        <details class="test-section" open>
+          <summary>
+            <span class="section-number" aria-hidden="true">1. </span>
             <h2 id="runtime-title" tabindex="-1">Widget controls</h2>
+          </summary>
+          <section class="runtime" aria-labelledby="runtime-title">
             <p class="hint">
               The Flow uses the settings from the last page load. Change Widget
               ID and Layer name below, then click Show widget to try them
@@ -638,161 +716,243 @@
 SDK not loaded.</pre
               >
             </details>
-            <details id="path-test">
-              <summary>URL-pattern test</summary>
-              <p class="hint" id="test-path-help">
-                Try a path such as /checkout or /news/article without leaving
-                this sandbox. This asks the SDK which widget its loaded rules
-                would select for that path, keeping the other current visitor
-                details and consent choices. Use only the path, without a
-                website domain, query string, or # fragment.
-              </p>
-              <label for="test-path">Test pathname</label>
-              <input
-                id="test-path"
-                type="text"
-                aria-describedby="test-path-help"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button id="check-path" type="button" disabled>
-                Check path rules
-              </button>
-              <p id="path-test-status" class="hint" role="status">
-                Load a Flow and wait for the SDK to be ready.
-              </p>
-              <details hidden>
-                <summary>Rules test result</summary>
-                <pre id="path-test-result"></pre>
-              </details>
-              <p class="hint">
-                This is a rule-selection check using
-                Didomi.widgets.getApplicable({ currentUrl: testPath }). It does
-                not change automatic display, the Show widget button, your
-                published Flow, or this page’s address. A selected widget can
-                still fail to display if its published assets are missing.
-                Change other test settings in Setup and apply them before
-                checking again. The test path is temporary and is not included
-                in the share link.
-              </p>
-            </details>
-            <section
-              id="consent-strings"
-              aria-labelledby="consent-strings-title"
-            >
-              <h3 id="consent-strings-title">Consent strings</h3>
-              <p class="hint">
-                Read the encoded IAB Transparency and Consent (TC) and Global
-                Privacy Platform (GPP) strings for this browser using
-                Didomi.getCurrentUserStatus(). These are a snapshot of the
-                current SDK state. The Didomi Consent String (DCS) below is read
-                separately from this browser’s saved storage. Reading these
-                strings does not accept, reject, or reset consent. A returned
-                string alone does not mean the visitor agreed to everything.
-              </p>
-              <button id="read-consent-strings" type="button" disabled>
-                Refresh consent strings
-              </button>
-              <p id="consent-strings-status" class="hint" role="status">
-                Load a Flow and wait for the SDK to be ready.
-              </p>
-              <label for="tc-string">TC string (IAB TCF)</label>
-              <textarea
-                id="tc-string"
-                rows="3"
-                readonly
-                spellcheck="false"
-                aria-describedby="tc-string-status"
-                placeholder="Read the current strings to see a value here."
-              ></textarea>
-              <p id="tc-string-status" class="hint" role="status">
-                Not read yet.
-              </p>
-              <div class="actions">
-                <button id="copy-tc-string" type="button" disabled>
-                  Copy TC string
-                </button>
-                <a
-                  id="decode-tc-string"
-                  href="https://iabgpp.com/#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >Open TC decoder (new tab)</a
-                >
-              </div>
-              <label for="gpp-string">GPP string</label>
-              <textarea
-                id="gpp-string"
-                rows="3"
-                readonly
-                spellcheck="false"
-                aria-describedby="gpp-string-status"
-                placeholder="Read the current strings to see a value here."
-              ></textarea>
-              <p id="gpp-string-status" class="hint" role="status">
-                Not read yet.
-              </p>
-              <div class="actions">
-                <button id="copy-gpp-string" type="button" disabled>
-                  Copy GPP string
-                </button>
-                <a
-                  id="decode-gpp-string"
-                  href="https://iabgpp.com/#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >Open GPP decoder (new tab)</a
-                >
-              </div>
-              <label for="dcs-string">DCS (Didomi Consent String)</label>
-              <textarea
-                id="dcs-string"
-                rows="3"
-                readonly
-                spellcheck="false"
-                aria-describedby="dcs-string-help dcs-string-status"
-                placeholder="Read the current strings to see a saved DCS here."
-              ></textarea>
-              <p id="dcs-string-help" class="hint">
-                DCS stores Didomi consent choices. This tool reads the saved
-                cookie or local storage value using the storage name in the
-                loaded configuration (normally didomi_dcs). It is not returned
-                by getCurrentUserStatus(). Copy preserves the complete value,
-                including any signature. Reading or using the decoder does not
-                save new choices in this Flow.
-              </p>
-              <p id="dcs-string-status" class="hint" role="status">
-                Not read yet.
-              </p>
-              <div class="actions">
-                <button id="copy-dcs-string" type="button" disabled>
-                  Copy DCS string
-                </button>
-                <a
-                  id="decode-dcs-string"
-                  href="https://dcs-decoder.didomi.io/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  >Open Didomi DCS decoder (new tab)</a
-                >
-              </div>
-              <p class="hint">
-                After refreshing, the TC and GPP decoder links open the
-                displayed string directly using the part of the URL after #. The
-                DCS link includes the displayed string in the dcs query
-                parameter, which is sent to Didomi’s decoder when you open it.
-                With no string available, links open the blank decoder. If no
-                string is returned, check the framework settings for the
-                regulation used by your published Flow.
-              </p>
-            </section>
           </section>
+        </details>
+        <details class="test-section" open>
+          <summary>
+            <span class="section-number" aria-hidden="true">2. </span>
+            <h2 id="consent-strings-title">Consent strings</h2>
+          </summary>
+          <section id="consent-strings" aria-labelledby="consent-strings-title">
+            <p class="hint">
+              Strings load automatically when the SDK is ready and update after
+              consent changes. Use Refresh for a manual check. Read the encoded
+              IAB Transparency and Consent (TC) and Global Privacy Platform
+              (GPP) strings for this browser using
+              Didomi.getCurrentUserStatus(). These are a snapshot of the current
+              SDK state. The Didomi Consent String (DCS) below is read
+              separately from this browser’s saved storage. Reading these
+              strings does not accept, reject, or reset consent. A returned
+              string alone does not mean the visitor agreed to everything.
+            </p>
+            <button id="read-consent-strings" type="button" disabled>
+              Refresh consent strings
+            </button>
+            <p id="consent-strings-status" class="hint" role="status">
+              Load a Flow and wait for the SDK to be ready.
+            </p>
+            <label for="tc-string">TC string (IAB TCF)</label>
+            <textarea
+              id="tc-string"
+              rows="3"
+              readonly
+              spellcheck="false"
+              aria-describedby="tc-string-status"
+              placeholder="Read the current strings to see a value here."
+            ></textarea>
+            <p id="tc-string-status" class="hint" role="status">
+              Waiting for the SDK.
+            </p>
+            <div class="actions">
+              <button id="copy-tc-string" type="button" disabled>
+                Copy TC string
+              </button>
+              <a
+                id="decode-tc-string"
+                href="https://iabgpp.com/#"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open TC decoder (new tab)</a
+              >
+            </div>
+            <label for="gpp-string">GPP string</label>
+            <textarea
+              id="gpp-string"
+              rows="3"
+              readonly
+              spellcheck="false"
+              aria-describedby="gpp-string-status"
+              placeholder="Read the current strings to see a value here."
+            ></textarea>
+            <p id="gpp-string-status" class="hint" role="status">
+              Waiting for the SDK.
+            </p>
+            <div class="actions">
+              <button id="copy-gpp-string" type="button" disabled>
+                Copy GPP string
+              </button>
+              <a
+                id="decode-gpp-string"
+                href="https://iabgpp.com/#"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open GPP decoder (new tab)</a
+              >
+            </div>
+            <label for="dcs-string">DCS (Didomi Consent String)</label>
+            <textarea
+              id="dcs-string"
+              rows="3"
+              readonly
+              spellcheck="false"
+              aria-describedby="dcs-string-help dcs-string-status"
+              placeholder="Read the current strings to see a saved DCS here."
+            ></textarea>
+            <p id="dcs-string-help" class="hint">
+              DCS stores Didomi consent choices. This tool reads the saved
+              cookie or local storage value using the storage name in the loaded
+              configuration (normally didomi_dcs). It is not returned by
+              getCurrentUserStatus(). Copy preserves the complete value,
+              including any signature. Reading or using the decoder does not
+              save new choices in this Flow.
+            </p>
+            <p id="dcs-string-status" class="hint" role="status">
+              Waiting for the SDK.
+            </p>
+            <div class="actions">
+              <button id="copy-dcs-string" type="button" disabled>
+                Copy DCS string
+              </button>
+              <a
+                id="decode-dcs-string"
+                href="https://dcs-decoder.didomi.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open Didomi DCS decoder (new tab)</a
+              >
+            </div>
+            <p class="hint">
+              The TC and GPP decoder links open the displayed string directly
+              using the part of the URL after #. The DCS link includes the
+              displayed string in the dcs query parameter, which is sent to
+              Didomi’s decoder when you open it. With no string available, links
+              open the blank decoder. If no string is returned, check the
+              framework settings for the regulation used by your published Flow.
+            </p>
+          </section>
+        </details>
+        <details class="test-section">
+          <summary>
+            <span class="section-number" aria-hidden="true">3. </span>
+            <h2 id="data-layer-title">Data layer and Google Consent Mode</h2>
+          </summary>
+          <section
+            id="data-layer-diagnostics"
+            class="runtime"
+            aria-labelledby="data-layer-title"
+          >
+            <p class="hint">
+              Inspect commands emitted on this page before and after changing
+              consent. This viewer does not load Google tags or enable
+              integrations. Entries stay in browser memory and are not added to
+              share links. Copy only the data you intend to share.
+            </p>
+            <div class="actions">
+              <button id="refresh-data-layer" type="button">
+                Refresh data layer
+              </button>
+              <button id="clear-data-layer" type="button">
+                Clear diagnostic view
+              </button>
+              <button id="copy-data-layer" type="button">
+                Copy filtered diagnostics
+              </button>
+            </div>
+            <p id="data-layer-feedback" role="status"></p>
+            <p id="data-layer-status" class="hint"></p>
+            <details>
+              <summary>Effective integration settings and SDK build</summary>
+              <pre id="data-layer-settings"></pre>
+            </details>
+            <details>
+              <summary>Expected behavior and interpretation</summary>
+              <ul id="data-layer-notes"></ul>
+            </details>
+            <h3>Observed consent signals</h3>
+            <p class="hint">
+              Configured defaults are values returned in the config, not a
+              prediction of the next command. The columns show the latest
+              retained default and update separately; an omitted signal is not
+              assumed denied. Pre-existing entries have no original timestamp.
+            </p>
+            <div class="data-layer-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Signal</th>
+                    <th scope="col">Configured default</th>
+                    <th scope="col">Last observed default</th>
+                    <th scope="col">Last observed update</th>
+                  </tr>
+                </thead>
+                <tbody id="data-layer-signals"></tbody>
+              </table>
+            </div>
+            <h3>Captured entries</h3>
+            <label for="data-layer-filter"
+              >Filter entries by layer, command or text</label
+            >
+            <input id="data-layer-filter" type="search" autocomplete="off" />
+            <p id="data-layer-count" class="hint"></p>
+            <ul id="data-layer-history"></ul>
+            <p class="hint">
+              Pushes are observed when possible. Late discovery and read-only
+              queues are sampled, so their original time and intermediate
+              entries may be unavailable. Values and history are bounded;
+              truncated data is marked.
+            </p>
+          </section>
+        </details>
+        <details id="path-test" class="test-section">
+          <summary>
+            <span class="section-number" aria-hidden="true">4. </span>
+            <h2>URL-pattern test</h2>
+          </summary>
+          <p class="hint" id="test-path-help">
+            Try a path such as /checkout or /news/article without leaving this
+            sandbox. This asks the SDK which widget its loaded rules would
+            select for that path, keeping the other current visitor details and
+            consent choices. Use only the path, without a website domain, query
+            string, or # fragment.
+          </p>
+          <label for="test-path">Test pathname</label>
+          <input
+            id="test-path"
+            type="text"
+            aria-describedby="test-path-help"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="check-path" type="button" disabled>
+            Check path rules
+          </button>
+          <p id="path-test-status" class="hint" role="status">
+            Load a Flow and wait for the SDK to be ready.
+          </p>
+          <details hidden>
+            <summary>Rules test result</summary>
+            <pre id="path-test-result"></pre>
+          </details>
+          <p class="hint">
+            This is a rule-selection check using Didomi.widgets.getApplicable({
+            currentUrl: testPath }). It does not change automatic display, the
+            Show widget button, your published Flow, or this page’s address. A
+            selected widget can still fail to display if its published assets
+            are missing. Change other test settings in Setup and apply them
+            before checking again. The test path is temporary and is not
+            included in the share link.
+          </p>
+        </details>
+        <details class="test-section">
+          <summary>
+            <span class="section-number" aria-hidden="true">5. </span>
+            <h2 id="troubleshooting-title" tabindex="-1">Troubleshooting</h2>
+          </summary>
           <section
             id="troubleshooting"
             class="runtime"
             aria-labelledby="troubleshooting-title"
           >
-            <h2 id="troubleshooting-title" tabindex="-1">Troubleshooting</h2>
             <p class="hint">
               Start with setup checks in Console. Findings use the returned
               config; they do not inspect your Console drafts or publication
@@ -853,7 +1013,7 @@ SDK not loaded.</pre
               Clearing messages does not change the config or fix an issue.
             </p>
           </section>
-        </div>
+        </details>
       </div>
       <div
         id="config-panel"

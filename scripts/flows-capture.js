@@ -14,7 +14,10 @@
       item.textContent = `${entry.level}: ${entry.message} ${entry.detail}`;
       list.append(item);
     }
-    if (entries.length) root.closest('[role="tabpanel"]').hidden = false;
+    if (entries.length) {
+      root.closest('[role="tabpanel"]').hidden = false;
+      root.closest("details.test-section").open = true;
+    }
     if (entries.length)
       root.querySelector("#troubleshooting-summary").textContent =
         "Startup warnings or errors were captured before the diagnostics view loaded. Review the evidence below; a site developer may need to inspect the page.";

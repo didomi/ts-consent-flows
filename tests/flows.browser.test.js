@@ -893,6 +893,9 @@ test("troubleshooting captures startup messages, preserves console forwarding, a
   await expect(page.locator("#runtime-events")).toContainText(
     "Example rejected promise",
   );
+  await page.locator("#troubleshooting").evaluate((root) => {
+    root.closest("details.test-section").open = true;
+  });
   await page
     .getByText("Technical evidence: captured runtime messages", { exact: true })
     .click();
@@ -944,6 +947,9 @@ test("startup failures remain visible when the main page module cannot load", as
     "Startup warnings or errors were captured",
   );
   expect(await page.locator("#runtime-events").isVisible()).toBe(false);
+  await page.locator("#troubleshooting").evaluate((root) => {
+    root.closest("details.test-section").open = true;
+  });
   await page
     .getByText("Technical evidence: captured runtime messages", { exact: true })
     .click();
