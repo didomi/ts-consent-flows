@@ -2,7 +2,11 @@ const { test, expect } = require("@playwright/test");
 
 async function mockSDK(
   page,
-  config = { regulation: { name: "gdpr" }, test: true },
+  config = {
+    regulation: { name: "gdpr" },
+    test: true,
+    widgets: { widget: { bundleUrl: "https://example.com/widget.js" } },
+  },
   startup = "",
 ) {
   await page.route("https://sdk*/**", (route) =>
@@ -51,9 +55,10 @@ test("applying setup opens the test workspace at the top with a focused heading"
   await apply.scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => window.scrollY > 100)).toBe(true);
   await Promise.all([page.waitForEvent("load"), apply.click()]);
-  await expect(
-    page.getByRole("tab", { name: "2. Test & Troubleshoot" }),
-  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "2. Test" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await expect(page.locator("#runtime-title")).toBeFocused();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   expect(await page.evaluate(() => location.hash)).toBe("#test");
@@ -179,7 +184,7 @@ test("Hide preview dismisses a fallback notice without resetting or writing cons
   for (const [name, id] of [
     ["1. Setup", "tab-setup"],
     ["3. Configuration", "tab-config"],
-    ["2. Test & troubleshoot", "tab-test"],
+    ["2. Test", "tab-test"],
   ]) {
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(page.locator(`#${id}`)).toHaveAttribute(
@@ -292,9 +297,7 @@ for (const platform of ["ctv", "web"]) {
         "aria-selected",
         "true",
       );
-      await page
-        .getByRole("tab", { name: "2. Test & troubleshoot", exact: true })
-        .click();
+      await page.getByRole("tab", { name: "2. Test", exact: true }).click();
     }
     expect(await page.evaluate(() => localStorage.getItem("test-reset"))).toBe(
       null,
@@ -504,9 +507,7 @@ test("empty form is usable, incomplete links hydrate, and SDK is not requested",
     "only-flow",
   );
   await expect(page.locator("#status")).toContainText("Enter both");
-  await page
-    .getByRole("tab", { name: "2. Test & troubleshoot", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Show widget", exact: true }),
   ).toBeDisabled();
@@ -526,7 +527,7 @@ test("loaded config renders automatically, refreshes, and copies the full JSON",
       },
     });
   });
-  await mockSDK(page);
+  await mockSDK(page, { regulation: { name: "gdpr" }, test: true });
   await page.goto("/index.html?apiKey=key&flow_id=flow");
   await page
     .getByRole("tab", { name: "3. Configuration", exact: true })
@@ -584,7 +585,7 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
   await page.getByLabel("Apply custom JSON", { exact: true }).selectOption("1");
   await page.getByLabel("Age", { exact: true }).fill("18");
   await page.getByLabel("Load GPP stub", { exact: true }).selectOption("1");
-  await page.getByRole("tab", { name: "2. Test & troubleshoot" }).click();
+  await page.getByRole("tab", { name: "2. Test" }).click();
   await page.getByLabel("Widget ID", { exact: true }).fill("widget");
   await page.getByLabel("Layer name", { exact: true }).fill("preferences");
   await openSetup(page);
@@ -638,9 +639,7 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
     .getByRole("button", { name: "Refresh loaded config", exact: true })
     .click();
   await expect(page.locator("#loaded-config")).toContainText('"test": true');
-  await page
-    .getByRole("tab", { name: "2. Test & troubleshoot", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   await page.getByRole("button", { name: "Reset status", exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("test-reset")))
@@ -763,9 +762,7 @@ test("loader network failure is visible and leaves widget controls disabled", as
   await page.route("https://sdk*/**", (route) => route.abort());
   await page.goto("/index.html?apiKey=key&flow_id=flow");
   await expect(page.locator("#status")).toContainText("Could not load the SDK");
-  await page
-    .getByRole("tab", { name: "2. Test & troubleshoot", exact: true })
-    .click();
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Show widget", exact: true }),
   ).toBeDisabled();
@@ -804,6 +801,10 @@ test("tree and plain views handle large collections and render untrusted JSON as
   };
   await mockSDK(page, config);
   await page.goto("/index.html?apiKey=key&flow_id=flow#config");
+  await expect(page.locator("#status")).toContainText("SDK ready");
+  await page
+    .getByRole("tab", { name: "3. Configuration", exact: true })
+    .click();
   await expect(page.locator("#config-tree")).toContainText('"nested"');
   expect(await page.locator("#config-tree .json-leaf").count()).toBe(1);
   await page
@@ -893,9 +894,7 @@ test("troubleshooting captures startup messages, preserves console forwarding, a
   await expect(page.locator("#runtime-events")).toContainText(
     "Example rejected promise",
   );
-  await page.locator("#troubleshooting").evaluate((root) => {
-    root.closest("details.test-section").open = true;
-  });
+  await page.getByRole("tab", { name: "4. Troubleshoot", exact: true }).click();
   await page
     .getByText("Technical evidence: captured runtime messages", { exact: true })
     .click();
@@ -914,11 +913,11 @@ test("workspace tabs support keyboard navigation, deep links and collapsed setup
   page,
 }) => {
   await page.goto("/index.html#troubleshooting-title");
-  await expect(page.locator("#tab-test")).toHaveAttribute(
+  await expect(page.locator("#tab-troubleshoot")).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await page.locator("#tab-test").press("ArrowRight");
+  await page.locator("#tab-troubleshoot").press("ArrowLeft");
   await expect(page.locator("#tab-config")).toHaveAttribute(
     "aria-selected",
     "true",
@@ -947,9 +946,7 @@ test("startup failures remain visible when the main page module cannot load", as
     "Startup warnings or errors were captured",
   );
   expect(await page.locator("#runtime-events").isVisible()).toBe(false);
-  await page.locator("#troubleshooting").evaluate((root) => {
-    root.closest("details.test-section").open = true;
-  });
+  await page.getByRole("tab", { name: "4. Troubleshoot", exact: true }).click();
   await page
     .getByText("Technical evidence: captured runtime messages", { exact: true })
     .click();
@@ -964,6 +961,7 @@ test("Show widget failures offer a dismissible dialog and a route to troubleshoo
   await expect(page.locator("#status")).toContainText("SDK ready");
   const dialog = page.getByRole("dialog");
   for (const mode of ["throw", "reject", "empty", "unavailable"]) {
+    await page.getByRole("tab", { name: "2. Test", exact: true }).click();
     await page.evaluate((mode) => {
       window.Didomi.widgets.isVisible = () => false;
       window.Didomi.widgets.show =
@@ -979,9 +977,7 @@ test("Show widget failures offer a dismissible dialog and a route to troubleshoo
       .getByRole("button", { name: "Show widget", exact: true })
       .click();
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText(
-      "Read the Troubleshooting section on tab 2",
-    );
+    await expect(dialog).toContainText("Read tab 4, “Troubleshoot,”");
     if (mode === "throw") {
       await page.getByRole("button", { name: "Close", exact: true }).click();
     } else if (mode === "reject") {
@@ -990,7 +986,7 @@ test("Show widget failures offer a dismissible dialog and a route to troubleshoo
       await page
         .getByRole("button", { name: "Read troubleshooting", exact: true })
         .click();
-      await expect(page.locator("#tab-test")).toHaveAttribute(
+      await expect(page.locator("#tab-troubleshoot")).toHaveAttribute(
         "aria-selected",
         "true",
       );
@@ -998,6 +994,7 @@ test("Show widget failures offer a dismissible dialog and a route to troubleshoo
     }
     await expect(dialog).not.toBeVisible();
   }
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   await page.evaluate(() => {
     let visible = false;
     window.Didomi.widgets.isVisible = () => visible;
@@ -1111,6 +1108,7 @@ test("DCS reads configured browser storage and preserves signed values for copyi
 }) => {
   await mockSDK(page, {
     cookies: { didomiConsentStringCookieName: "custom_dcs" },
+    widgets: { widget: { bundleUrl: "https://example.com/widget.js" } },
   });
   await page.goto("/index.html?apiKey=key&flow_id=flow#test");
   await expect(page.locator("#status")).toContainText("SDK ready");
@@ -1265,11 +1263,13 @@ test("URL-pattern tester overrides only the query context and leaves page and wi
     "Could not check path rules: Rules query failed",
   );
   expect(await page.locator("#path-test-result").textContent()).toBe("");
-  expect(page.url()).toBe(originalURL);
+  expect(page.url()).toBe(originalURL.replace("#test", "#troubleshoot"));
+  await expect(page.locator("#tab-troubleshoot")).toBeFocused();
   await page.evaluate(() => {
     window.Didomi.widgets.getApplicable = undefined;
     window.didomiOnReady.forEach((callback) => callback());
   });
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   await expect(check).toBeDisabled();
   await expect(page.locator("#path-test-status")).toContainText(
     "This SDK version does not provide rules testing",
@@ -1322,4 +1322,69 @@ test("Setup reset status uses the SDK reset and reloads with the existing test s
   expect(page.url()).toBe(originalURL);
   await expect(page.getByLabel("Flow ID", { exact: true })).toHaveValue("flow");
   await expect(page.getByLabel("Country", { exact: true })).toHaveValue("FR");
+});
+
+test("startup loading failures select and focus Troubleshoot, including readiness timeouts", async ({
+  page,
+}) => {
+  await page.route("https://sdk*/**", (route) => route.abort());
+  await page.goto("/index.html?apiKey=key&flow_id=flow#setup");
+  await expect(page.locator("#status")).toContainText("Could not load the SDK");
+  await expect(page.locator("#tab-troubleshoot")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.locator("#tab-troubleshoot")).toBeFocused();
+  await expect(page.locator("#setup-panel")).toBeHidden();
+  await expect(page.locator("#troubleshooting")).toBeVisible();
+  await page.unroute("https://sdk*/**");
+  await page.route("https://sdk*/**", (route) =>
+    route.fulfill({
+      contentType: "application/javascript",
+      body: "/* loader never becomes ready */",
+    }),
+  );
+  await page.clock.install();
+  await page.goto("/index.html?apiKey=key&flow_id=flow#config");
+  await expect(page.locator("#status")).toContainText("Loading the Flow SDK");
+  await page.clock.fastForward(21000);
+  await expect(page.locator("#status")).toContainText("has not become ready");
+  await expect(page.locator("#tab-troubleshoot")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.locator("#tab-troubleshoot")).toBeFocused();
+});
+
+test("missing widgets, config inspection errors and new runtime errors route to Troubleshoot", async ({
+  page,
+}) => {
+  await mockSDK(page, {});
+  await page.goto("/index.html?apiKey=key&flow_id=flow#test");
+  await expect(page.locator("#status")).toContainText(
+    "no widgets were returned",
+  );
+  await expect(page.locator("#tab-troubleshoot")).toBeFocused();
+  await page
+    .getByRole("tab", { name: "3. Configuration", exact: true })
+    .click();
+  await page.evaluate(() => {
+    Didomi.getConfig = () => {
+      throw new Error("Config unavailable");
+    };
+  });
+  await page.locator("#inspect-config").click();
+  await expect(page.locator("#tab-troubleshoot")).toBeFocused();
+  await expect(page.locator("#loaded-config-status")).toContainText(
+    "could not be displayed",
+  );
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
+  await page.evaluate(() => console.error("Example runtime failure"));
+  await expect(page.locator("#tab-troubleshoot")).toBeFocused();
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
+  await page.evaluate(() => console.warn("Example guidance"));
+  await expect(page.locator("#tab-test")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 });

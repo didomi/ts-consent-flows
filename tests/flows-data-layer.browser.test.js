@@ -27,6 +27,7 @@ async function sdk(page, settings = config, startup = "") {
   );
   await page.goto("/index.html?apiKey=key&flow_id=flow#test");
   await expect(page.locator("#status")).toContainText("SDK ready");
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   await page.locator("#data-layer-title").click();
 }
 test("captures startup and custom-layer consent commands, filters/copies evidence, and clears only the view", async ({
@@ -208,10 +209,9 @@ test("test tab sections are ordered and collapsible with keyboard navigation", a
       expect.stringContaining("Consent strings"),
       expect.stringContaining("Google Consent Mode"),
       expect.stringContaining("URL-pattern test"),
-      expect.stringContaining("Troubleshooting"),
     ]),
   );
-  await expect(sections).toHaveCount(5);
+  await expect(sections).toHaveCount(4);
   const labels = await sections
     .locator(":scope > summary h2")
     .allTextContents();
@@ -220,7 +220,6 @@ test("test tab sections are ordered and collapsible with keyboard navigation", a
     "Consent strings",
     "Data layer and Google Consent Mode",
     "URL-pattern test",
-    "Troubleshooting",
   ]);
   const summary = sections.nth(2).locator(":scope > summary");
   await summary.focus();
@@ -252,6 +251,7 @@ test("consent strings populate on ready and after a choice, including delayed st
   await page.goto("/index.html?apiKey=key&flow_id=flow#test");
   await expect(page.locator("#tc-string")).toHaveValue("initial-TC");
   await expect(page.locator("#gpp-string")).toHaveValue("initial-GPP");
+  await page.getByRole("tab", { name: "2. Test", exact: true }).click();
   // Begin an old read, then make a choice while it is still pending.
   await page.evaluate(() => {
     Didomi.getCurrentUserStatus = () =>

@@ -28,11 +28,9 @@ export function createWorkspace() {
   function fromHash() {
     const hash = location.hash.slice(1);
     if (hash === "config" || hash === "loaded-config-title") activate("config");
-    else if (
-      hash === "test" ||
-      hash === "troubleshooting-title" ||
-      hash === "runtime-title"
-    ) {
+    else if (hash === "troubleshoot" || hash === "troubleshooting-title")
+      activate("troubleshoot");
+    else if (hash === "test" || hash === "runtime-title") {
       activate("test");
       const heading = document.getElementById(hash);
       const section = heading?.closest("details.test-section");
@@ -52,7 +50,10 @@ export function createWorkspace() {
     history.replaceState(null, "", location.href);
     const landOnTest = () => {
       requestAnimationFrame(() => {
-        document.getElementById("runtime-title").focus({ preventScroll: true });
+        if (document.querySelector('#tab-test[aria-selected="true"]'))
+          document
+            .getElementById("runtime-title")
+            .focus({ preventScroll: true });
         window.scrollTo({ top: 0, left: 0, behavior: "instant" });
         history.scrollRestoration = "auto";
       });

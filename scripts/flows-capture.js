@@ -15,8 +15,13 @@
       list.append(item);
     }
     if (entries.length) {
-      root.closest('[role="tabpanel"]').hidden = false;
-      root.closest("details.test-section").open = true;
+      for (const tab of document.querySelectorAll('[role="tab"][data-panel]')) {
+        const active = tab.dataset.panel === "troubleshoot";
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
+        document.getElementById(`${tab.dataset.panel}-panel`).hidden = !active;
+      }
+      document.querySelector("#tab-troubleshoot")?.focus();
     }
     if (entries.length)
       root.querySelector("#troubleshooting-summary").textContent =
@@ -59,7 +64,9 @@
         lastSeen: new Date().toISOString(),
       });
     }
-    window.dispatchEvent(new Event("flows-debug-update"));
+    window.dispatchEvent(
+      new CustomEvent("flows-debug-update", { detail: { level } }),
+    );
     startupFallback();
   }
   window.flowDebugCapture = {
