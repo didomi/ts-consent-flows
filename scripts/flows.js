@@ -283,7 +283,7 @@ function renderRuntime() {
   summary.replaceChildren();
   for (const [label, value] of Object.entries({
     Flow: applied.flow_id,
-    Deployment: applied.environment,
+    "Flow publication": applied.environment,
     "CTV UI override": applied.ctv_ui === "1" ? "Requested" : "Off",
     Regulation: config?.regulation?.name || "Not returned",
     "Widget visible":

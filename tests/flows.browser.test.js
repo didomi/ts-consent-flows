@@ -569,10 +569,10 @@ test("shareable edits apply on reload, stubs precede loader, and widget API work
   await page.getByLabel("Public API key", { exact: true }).fill("public-key");
   await page.getByLabel("Flow ID", { exact: true }).fill("flow&encoded=1");
   await page
-    .getByLabel("Flow deployment", { exact: true })
+    .getByLabel("Flow publication", { exact: true })
     .selectOption("staging");
   await page
-    .getByLabel("SDK environment", { exact: true })
+    .getByLabel("Didomi platform environment", { exact: true })
     .selectOption("preprod");
   await page.getByLabel("Country", { exact: true }).fill("US");
   await page.getByLabel("Region", { exact: true }).fill("CA");
