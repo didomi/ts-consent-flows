@@ -11,8 +11,12 @@ import {
 } from "./flows-state.mjs";
 import { createJSONViewer } from "./flows-json-viewer.mjs";
 import { createTroubleshooting } from "./flows-troubleshooting.mjs";
-import { createConsentStrings } from "./flows-consent-strings.mjs";
+import {
+  createConsentStrings,
+  hasStoredChoice,
+} from "./flows-consent-strings.mjs";
 import { createPathTest } from "./flows-path-test.mjs";
+import { createDataLayerPanel } from "./flows-data-layer.mjs";
 import { createWorkspace } from "./flows-layout.mjs";
 
 const form = document.querySelector("#flow-form");
@@ -20,8 +24,25 @@ const status = document.querySelector("#status");
 const info = document.querySelector("#runtime-info");
 const consentStrings = createConsentStrings(
   document.querySelector("#consent-strings"),
+  (snapshot) => {
+    let stored = false;
+    try {
+      stored = hasStoredChoice(
+        snapshot,
+        window.Didomi?.getConfig?.(),
+        window.Didomi?.shouldUserStatusBeCollected?.(),
+        performance.timeOrigin,
+      );
+    } catch {
+      /* Do not infer a saved choice when the SDK cannot confirm it. */
+    }
+    document.querySelector("#stored-consent-banner").hidden = !stored;
+  },
 );
 const pathTest = createPathTest(document.querySelector("#path-test"));
+const dataLayer = createDataLayerPanel(
+  document.querySelector("#data-layer-diagnostics"),
+);
 const controls = new Map();
 const widgetKeys = new Set(["widget_id", "layer_name"]);
 const initial = readState(new URLSearchParams(location.search));
@@ -35,9 +56,14 @@ const troubleshooting = createTroubleshooting(
   document.querySelector("#troubleshooting"),
 );
 
-function message(text, error = false) {
+function message(text, error = false, navigate = true) {
   status.textContent = text;
   status.dataset.error = String(error);
+  if (error && applied && navigate) showTroubleshooting();
+}
+function showTroubleshooting() {
+  workspace.activate("troubleshoot", true);
+  document.querySelector("#tab-troubleshoot").focus();
 }
 for (const [groupIndex, group] of groups.entries()) {
   const section = document.createElement("details");
@@ -143,7 +169,10 @@ for (const [groupIndex, group] of groups.entries()) {
   section.append(summary, fieldset);
   document.querySelector("#field-groups").append(section);
 }
-const workspace = createWorkspace();
+const workspace = createWorkspace(initial);
+window.addEventListener("flows-debug-update", (event) => {
+  if (event.detail?.level === "error" && applied) showTroubleshooting();
+});
 function stateFromForm() {
   return Object.fromEntries(
     fields.map(({ key }) => [key, controls.get(key).value]),
@@ -183,7 +212,7 @@ function preview(state, updateHistory = false) {
     document.querySelector("#loader-url").textContent = error.message;
     document.querySelector("#effective-config").textContent =
       "Fix input errors to preview the effective config.";
-    message(error.message, true);
+    message(error.message, true, false);
     return false;
   }
 }
@@ -236,6 +265,7 @@ function renderRuntime() {
   const config = window.Didomi?.getConfig?.();
   const context = assetContext();
   const diagnostics = widgetDiagnostics(config, context);
+  dataLayer.update(config, context);
   const visible = window.Didomi?.widgets?.isVisible?.();
   const noticeVisible = window.Didomi?.notice?.isVisible?.();
   const previewVisible = Boolean(
@@ -253,7 +283,7 @@ function renderRuntime() {
   summary.replaceChildren();
   for (const [label, value] of Object.entries({
     Flow: applied.flow_id,
-    Deployment: applied.environment,
+    "Flow publication": applied.environment,
     "CTV UI override": applied.ctv_ui === "1" ? "Requested" : "Off",
     Regulation: config?.regulation?.name || "Not returned",
     "Widget visible":
@@ -322,6 +352,7 @@ function renderLoadedConfig() {
       pathname: location.pathname,
     });
     feedback.textContent = "Configuration could not be displayed.";
+    message(`Could not inspect the SDK configuration: ${error.message}`, true);
     copy.disabled = true;
     window.flowDebugCapture?.record(
       "Config inspection",
@@ -341,6 +372,13 @@ async function runAction(action) {
     window.flowDebugCapture?.record("SDK action", "error", error.message);
   }
 }
+document.querySelector("#show-stored-preview").addEventListener("click", () => {
+  workspace.activate("test");
+  document
+    .querySelector("#runtime-title")
+    .closest("details.test-section").open = true;
+  document.querySelector("#show-widget").click();
+});
 const widgetProblem = document.querySelector("#widget-problem");
 document
   .querySelector("#close-widget-problem")
@@ -349,8 +387,7 @@ document
   .querySelector("#widget-problem-troubleshooting")
   .addEventListener("click", () => {
     widgetProblem.close();
-    workspace.activate("test");
-    history.replaceState(null, "", "#troubleshooting-title");
+    workspace.activate("troubleshoot", true);
     const heading = document.querySelector("#troubleshooting-title");
     heading.scrollIntoView({ block: "start", behavior: "smooth" });
     heading.focus({ preventScroll: true });
@@ -394,7 +431,7 @@ document.querySelector("#show-widget").addEventListener("click", async () => {
   } catch (error) {
     const detail = error?.message || "The SDK could not display a widget.";
     message(
-      "The widget could not be displayed. Read Troubleshooting on tab 2 for checks to try.",
+      "The widget could not be displayed. Read Troubleshoot on tab 4 for checks to try.",
       true,
     );
     window.flowDebugCapture?.record("Show widget", "error", detail);
@@ -486,57 +523,64 @@ async function start() {
   if (!preview(initial)) return;
   applied = initial;
   window.didomiConfig = buildConfig(applied);
+  window.flowDataLayerCapture?.configure(window.didomiConfig);
   const url = loaderURL(applied);
   window.didomiOnReady = window.didomiOnReady || [];
   window.didomiOnReady.push(() => {
-    ready = true;
-    consentStrings.setReady();
-    pathTest.setReady();
-    clearTimeout(readyTimer);
-    document.querySelector("#show-widget").disabled = false;
-    document.querySelector("#hide-widget").disabled =
-      typeof window.Didomi?.widgets?.hide !== "function";
-    for (const button of document.querySelectorAll("[data-reset-status]")) {
-      button.disabled = typeof window.Didomi?.reset !== "function";
-    }
-    document.querySelector("#inspect-config").disabled =
-      typeof window.Didomi?.getConfig !== "function";
-    renderRuntime();
-    renderLoadedConfig();
-    if (typeof window.Didomi?.on === "function") {
-      for (const event of [
-        "notice.shown",
-        "notice.hidden",
-        "preferences.shown",
-        "preferences.hidden",
-        "widget.shown",
-        "widget.hidden",
-      ])
-        window.Didomi.on(event, renderRuntime);
-    }
-    const diagnostics = widgetDiagnostics(
-      window.Didomi?.getConfig?.(),
-      assetContext(),
-    );
-    if (!window.Didomi?.widgets) {
-      message(
-        "SDK ready, but the widgets API is unavailable. Verify the deployment and SDK version.",
-        true,
+    try {
+      ready = true;
+      consentStrings.setReady();
+      pathTest.setReady();
+      clearTimeout(readyTimer);
+      document.querySelector("#show-widget").disabled = false;
+      document.querySelector("#hide-widget").disabled =
+        typeof window.Didomi?.widgets?.hide !== "function";
+      for (const button of document.querySelectorAll("[data-reset-status]")) {
+        button.disabled = typeof window.Didomi?.reset !== "function";
+      }
+      document.querySelector("#inspect-config").disabled =
+        typeof window.Didomi?.getConfig !== "function";
+      renderRuntime();
+      renderLoadedConfig();
+      if (typeof window.Didomi?.on === "function") {
+        for (const event of [
+          "notice.shown",
+          "notice.hidden",
+          "preferences.shown",
+          "preferences.hidden",
+          "widget.shown",
+          "widget.hidden",
+        ])
+          window.Didomi.on(event, renderRuntime);
+      }
+      const diagnostics = widgetDiagnostics(
+        window.Didomi?.getConfig?.(),
+        assetContext(),
       );
-    } else if (!diagnostics.widgetIds.length) {
-      message(
-        "SDK ready, but no widgets were returned. Verify the Flow deployment, targeting, and loaded config.",
-        true,
-      );
-    } else if (diagnostics.missingBundleUrls.length) {
-      message(
-        `SDK ready, but these widgets have no usable web display assets: ${diagnostics.missingBundleUrls.join(", ")}. Verify Flow publishing and config delivery.`,
-        true,
-      );
-    } else {
-      message(
-        "SDK ready. Inspect the loaded config and test the Flow widgets.",
-      );
+      if (!window.Didomi?.widgets) {
+        message(
+          "SDK ready, but the widgets API is unavailable. Verify the deployment and SDK version.",
+          true,
+        );
+      } else if (!diagnostics.widgetIds.length) {
+        message(
+          "SDK ready, but no widgets were returned. Verify the Flow deployment, targeting, and loaded config.",
+          true,
+        );
+      } else if (diagnostics.missingBundleUrls.length) {
+        message(
+          `SDK ready, but these widgets have no usable web display assets: ${diagnostics.missingBundleUrls.join(", ")}. Verify Flow publishing and config delivery.`,
+          true,
+        );
+      } else {
+        message(
+          "SDK ready. Inspect the loaded config and test the Flow widgets.",
+        );
+      }
+    } catch (error) {
+      clearTimeout(readyTimer);
+      message(`Could not inspect the ready SDK: ${error.message}`, true);
+      window.flowDebugCapture?.record("SDK inspection", "error", error.message);
     }
   });
   message("Loading the Flow SDK…");

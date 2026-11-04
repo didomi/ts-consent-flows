@@ -1,4 +1,4 @@
-export function createWorkspace() {
+export function createWorkspace({ apiKey, flow_id } = {}) {
   const tabs = [...document.querySelectorAll('[role="tab"][data-panel]')];
   function activate(name, changeHash = false) {
     for (const tab of tabs) {
@@ -28,13 +28,15 @@ export function createWorkspace() {
   function fromHash() {
     const hash = location.hash.slice(1);
     if (hash === "config" || hash === "loaded-config-title") activate("config");
-    else if (
-      hash === "test" ||
-      hash === "troubleshooting-title" ||
-      hash === "runtime-title"
-    )
+    else if (hash === "troubleshoot" || hash === "troubleshooting-title") {
+      if (apiKey && flow_id) activate("troubleshoot");
+      else activate("setup", true);
+    } else if (hash === "test" || hash === "runtime-title") {
       activate("test");
-    else if (hash.startsWith("setup-group-")) {
+      const heading = document.getElementById(hash);
+      const section = heading?.closest("details.test-section");
+      if (section) section.open = true;
+    } else if (hash.startsWith("setup-group-")) {
       activate("setup");
       const group = document.getElementById(hash);
       if (group) {
@@ -49,7 +51,10 @@ export function createWorkspace() {
     history.replaceState(null, "", location.href);
     const landOnTest = () => {
       requestAnimationFrame(() => {
-        document.getElementById("runtime-title").focus({ preventScroll: true });
+        if (document.querySelector('#tab-test[aria-selected="true"]'))
+          document
+            .getElementById("runtime-title")
+            .focus({ preventScroll: true });
         window.scrollTo({ top: 0, left: 0, behavior: "instant" });
         history.scrollRestoration = "auto";
       });

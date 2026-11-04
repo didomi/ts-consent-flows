@@ -14,7 +14,23 @@
       item.textContent = `${entry.level}: ${entry.message} ${entry.detail}`;
       list.append(item);
     }
-    if (entries.length) root.closest('[role="tabpanel"]').hidden = false;
+    const params = new URLSearchParams(location.search);
+    const flowId =
+      params.get("flow_id") ||
+      (params.get("target_type") === "flow" && params.get("target"));
+    if (
+      params.get("apiKey") &&
+      flowId &&
+      entries.some((entry) => entry.level === "error")
+    ) {
+      for (const tab of document.querySelectorAll('[role="tab"][data-panel]')) {
+        const active = tab.dataset.panel === "troubleshoot";
+        tab.setAttribute("aria-selected", String(active));
+        tab.tabIndex = active ? 0 : -1;
+        document.getElementById(`${tab.dataset.panel}-panel`).hidden = !active;
+      }
+      document.querySelector("#tab-troubleshoot")?.focus();
+    }
     if (entries.length)
       root.querySelector("#troubleshooting-summary").textContent =
         "Startup warnings or errors were captured before the diagnostics view loaded. Review the evidence below; a site developer may need to inspect the page.";
@@ -56,7 +72,9 @@
         lastSeen: new Date().toISOString(),
       });
     }
-    window.dispatchEvent(new Event("flows-debug-update"));
+    window.dispatchEvent(
+      new CustomEvent("flows-debug-update", { detail: { level } }),
+    );
     startupFallback();
   }
   window.flowDebugCapture = {

@@ -18,8 +18,8 @@ Open the [CMP notice sandbox](https://didomi.github.io/ts-all-cmp/) to test Cons
 | --------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `apiKey`                                      | Public API key used for the Didomi SDK                                                      |
 | `flow_id`                                     | ID of the published Flow to load                                                            |
-| `environment`                                 | Flow deployment environment: `production` (default) or `staging`                            |
-| `sdk_environment`                             | SDK environment: `production` (default), `staging`, or `preprod`                            |
+| `environment`                                 | Flow publication: `production` (default) or `staging`                            |
+| `sdk_environment`                             | Didomi platform environment (SDK and config infrastructure): `production` (default), `staging`, or `preprod`                            |
 | `platform`                                    | Platform of the published Flow: `web` (default) or `ctv`                                    |
 | `ctv_ui`                                      | If set to `1`, forces the SDK's CTV UI for this test                                        |
 | `country`                                     | User's country code (e.g., `FR`, `US`)                                                      |

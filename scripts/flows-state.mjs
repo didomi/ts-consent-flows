@@ -9,7 +9,7 @@ const field = (key, label, hint = "", options) => ({
 export const groups = [
   {
     title: "Flow and deployment",
-    hint: "The deployment environment selects published Flow content. The SDK environment selects the infrastructure serving it.",
+    hint: "Didomi platform environment selects the SDK and configuration infrastructure. Flow publication selects the published version within that environment.",
     fields: [
       field(
         "apiKey",
@@ -23,14 +23,14 @@ export const groups = [
       ),
       field(
         "environment",
-        "Flow deployment",
+        "Flow publication",
         "Chooses which published version of the Flow to test. Use production for live content or staging for a test publication. Unsaved drafts are not loaded.",
         ["production", "staging"],
       ),
       field(
         "sdk_environment",
-        "SDK environment",
-        "Chooses where the SDK is loaded from. Keep production for normal testing; use staging or preprod only when testing there with your Didomi contact. This is separate from the Flow’s publication environment.",
+        "Didomi platform environment",
+        "Select the environment where your Flow was created. This chooses the SDK and configuration infrastructure. Use production for the production Console or staging for the staging Console. Preprod uses production configuration data.",
         ["production", "staging", "preprod"],
       ),
       field(
@@ -98,7 +98,7 @@ export const groups = [
           gvl: "Include IAB Global Vendor List (gvl)",
         },
         tooltip:
-          "Automatic: omit opts and let the loader include vendor-list data when needed.\nInclude IAB Global Vendor List: sends opts=gvl to loader.js, requesting vendor-list data even when the selected regulation would not normally include it. For example, use it to investigate missing IAB vendor-list data while testing a non-GDPR location.\nFor GDPR or a configuration that already uses IAB, the data is normally included automatically, so choosing gvl may make no visible difference. This option does not enable TCF, change its version, or select an environment. Use Flow deployment for staging/production. These choices affect loader.js; this page does not separately request the config JSON endpoint.",
+          "Automatic: omit opts and let the loader include vendor-list data when needed.\nInclude IAB Global Vendor List: sends opts=gvl to loader.js, requesting vendor-list data even when the selected regulation would not normally include it. For example, use it to investigate missing IAB vendor-list data while testing a non-GDPR location.\nFor GDPR or a configuration that already uses IAB, the data is normally included automatically, so choosing gvl may make no visible difference. This option does not enable TCF, change its version, or select an environment. Use Flow publication for staging/production. These choices affect loader.js; this page does not separately request the config JSON endpoint.",
       },
       field(
         "ts",
