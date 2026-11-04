@@ -1,4 +1,4 @@
-export function createWorkspace() {
+export function createWorkspace({ apiKey, flow_id } = {}) {
   const tabs = [...document.querySelectorAll('[role="tab"][data-panel]')];
   function activate(name, changeHash = false) {
     for (const tab of tabs) {
@@ -28,9 +28,10 @@ export function createWorkspace() {
   function fromHash() {
     const hash = location.hash.slice(1);
     if (hash === "config" || hash === "loaded-config-title") activate("config");
-    else if (hash === "troubleshoot" || hash === "troubleshooting-title")
-      activate("troubleshoot");
-    else if (hash === "test" || hash === "runtime-title") {
+    else if (hash === "troubleshoot" || hash === "troubleshooting-title") {
+      if (apiKey && flow_id) activate("troubleshoot");
+      else activate("setup", true);
+    } else if (hash === "test" || hash === "runtime-title") {
       activate("test");
       const heading = document.getElementById(hash);
       const section = heading?.closest("details.test-section");

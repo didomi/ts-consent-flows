@@ -14,7 +14,15 @@
       item.textContent = `${entry.level}: ${entry.message} ${entry.detail}`;
       list.append(item);
     }
-    if (entries.length) {
+    const params = new URLSearchParams(location.search);
+    const flowId =
+      params.get("flow_id") ||
+      (params.get("target_type") === "flow" && params.get("target"));
+    if (
+      params.get("apiKey") &&
+      flowId &&
+      entries.some((entry) => entry.level === "error")
+    ) {
       for (const tab of document.querySelectorAll('[role="tab"][data-panel]')) {
         const active = tab.dataset.panel === "troubleshoot";
         tab.setAttribute("aria-selected", String(active));

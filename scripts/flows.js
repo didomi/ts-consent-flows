@@ -169,7 +169,7 @@ for (const [groupIndex, group] of groups.entries()) {
   section.append(summary, fieldset);
   document.querySelector("#field-groups").append(section);
 }
-const workspace = createWorkspace();
+const workspace = createWorkspace(initial);
 window.addEventListener("flows-debug-update", (event) => {
   if (event.detail?.level === "error" && applied) showTroubleshooting();
 });

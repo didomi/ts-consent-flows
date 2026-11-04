@@ -912,7 +912,8 @@ test("troubleshooting captures startup messages, preserves console forwarding, a
 test("workspace tabs support keyboard navigation, deep links and collapsed setup groups", async ({
   page,
 }) => {
-  await page.goto("/index.html#troubleshooting-title");
+  await mockSDK(page);
+  await page.goto("/index.html?apiKey=key&flow_id=flow#troubleshooting-title");
   await expect(page.locator("#tab-troubleshoot")).toHaveAttribute(
     "aria-selected",
     "true",
@@ -941,7 +942,7 @@ test("startup failures remain visible when the main page module cannot load", as
   page,
 }) => {
   await page.route("**/scripts/flows.js", (route) => route.abort());
-  await page.goto("/index.html");
+  await page.goto("/index.html?apiKey=key&flow_id=flow");
   await expect(page.locator("#troubleshooting-summary")).toContainText(
     "Startup warnings or errors were captured",
   );
@@ -1387,4 +1388,45 @@ test("missing widgets, config inspection errors and new runtime errors route to 
     "aria-selected",
     "true",
   );
+});
+
+test("empty and incomplete troubleshooting links stay on Setup even after runtime errors", async ({
+  page,
+}) => {
+  for (const query of ["", "?apiKey=key", "?flow_id=flow"]) {
+    await page.goto(`/index.html${query}#troubleshoot`);
+    await expect(page.locator("#status")).toContainText("Enter both");
+    await expect(page.locator("#tab-setup")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(new URL(page.url()).hash).toBe("#setup");
+    await page.evaluate(() => console.error("Unrelated page error"));
+    await expect(page.locator("#tab-setup")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await page
+      .getByRole("tab", { name: "4. Troubleshoot", exact: true })
+      .click();
+    await expect(page.locator("#troubleshooting")).toBeVisible();
+  }
+});
+
+test("early module failures do not switch an empty or incomplete sandbox to Troubleshoot", async ({
+  page,
+}) => {
+  await page.route("**/scripts/flows.js", (route) => route.abort());
+  for (const query of ["", "?apiKey=key", "?flow_id=flow"]) {
+    await page.goto(`/index.html${query}`);
+    await expect(page.locator("#troubleshooting-summary")).toContainText(
+      "Startup warnings or errors were captured",
+    );
+    await expect(page.locator("#tab-setup")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.locator("#setup-panel")).toBeVisible();
+    await expect(page.locator("#troubleshoot-panel")).toBeHidden();
+  }
 });
