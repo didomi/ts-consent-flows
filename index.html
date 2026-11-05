@@ -506,6 +506,28 @@
         text-align: left;
         border-bottom: 1px solid var(--sandbox-border);
       }
+      #sandbox #consent-state-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 8px 24px;
+        margin: 16px 0;
+      }
+      #sandbox #consent-state-summary p {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      #sandbox .consent-state-table {
+        max-height: 440px;
+        overflow: auto;
+      }
+      #sandbox .consent-state-table td {
+        overflow-wrap: anywhere;
+        max-width: 320px;
+      }
+      #sandbox #consent-state pre {
+        max-height: 440px;
+        overflow: auto;
+      }
       #sandbox #data-layer-history {
         max-height: 560px;
         overflow: auto;
@@ -844,6 +866,110 @@ SDK not loaded.</pre
         <details class="test-section">
           <summary>
             <span class="section-number" aria-hidden="true">3. </span>
+            <h2 id="consent-state-title">Current consent state</h2>
+          </summary>
+          <section id="consent-state" aria-labelledby="consent-state-title">
+            <p class="hint">
+              Read the SDK’s current purpose and vendor states alongside the
+              consent strings above. Both views share a snapshot and refresh
+              after SDK consent events when available. Use Refresh for a manual
+              reading. These controls do not change consent or save pending
+              widget choices.
+            </p>
+            <div class="actions">
+              <button id="refresh-consent-state" type="button" disabled>
+                Refresh consent state
+              </button>
+              <button id="copy-consent-state" type="button" disabled>
+                Copy consent snapshot
+              </button>
+            </div>
+            <p class="hint">
+              Copy includes returned user identifiers and consent strings, plus
+              the separately labelled tag-manager projection. Share only where
+              intended. Data stays in browser memory and is not added to share
+              links.
+            </p>
+            <p id="consent-state-status" class="hint" role="status">
+              Load a Flow and wait for the SDK to be ready.
+            </p>
+            <div id="consent-state-summary" class="hint"></div>
+            <p id="consent-state-interpretation" class="hint"></p>
+            <p class="hint">
+              Names and namespaces come from loaded SDK metadata. Some builds
+              return translation keys as names; those keys are shown as
+              returned. When metadata is unavailable, use the exact ID.
+            </p>
+            <label for="consent-state-filter"
+              >Filter consent entries by ID, name, namespace or status</label
+            >
+            <input id="consent-state-filter" type="search" />
+            <h3>Purposes</h3>
+            <p id="consent-state-purposes-status" class="hint">
+              No snapshot read yet.
+            </p>
+            <div class="data-layer-table consent-state-table">
+              <table aria-label="Current purpose states">
+                <thead>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Namespace</th>
+                    <th scope="col">Effective state</th>
+                    <th scope="col">Returned entry</th>
+                  </tr>
+                </thead>
+                <tbody id="consent-state-purposes"></tbody>
+              </table>
+            </div>
+            <button id="more-consent-purposes" type="button" hidden>
+              Show next 100 purposes
+            </button>
+            <h3>Vendors</h3>
+            <p id="consent-state-vendors-status" class="hint">
+              No snapshot read yet.
+            </p>
+            <div class="data-layer-table consent-state-table">
+              <table aria-label="Current vendor states">
+                <thead>
+                  <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Namespace</th>
+                    <th scope="col">Effective state</th>
+                    <th scope="col">Returned entry</th>
+                  </tr>
+                </thead>
+                <tbody id="consent-state-vendors"></tbody>
+              </table>
+            </div>
+            <button id="more-consent-vendors" type="button" hidden>
+              Show next 100 vendors
+            </button>
+            <details id="consent-state-raw-details">
+              <summary>Raw SDK status — Didomi.getCurrentUserStatus()</summary>
+              <pre id="consent-state-raw" tabindex="0">
+No current snapshot available.</pre
+              >
+            </details>
+            <details>
+              <summary>Tag-manager projection — window.didomiState</summary>
+              <p id="consent-projection-status" class="hint">Not read.</p>
+              <pre id="consent-projection-raw">
+No current snapshot available.</pre
+              >
+            </details>
+            <p class="hint">
+              Snapshots are bounded to keep the view responsive. Truncation,
+              unreadable values and circular references are marked. Filtering
+              changes the tables only; raw snapshots and copy retain the
+              captured data.
+            </p>
+          </section>
+        </details>
+        <details class="test-section">
+          <summary>
+            <span class="section-number" aria-hidden="true">4. </span>
             <h2 id="data-layer-title">Data layer and Google Consent Mode</h2>
           </summary>
           <section
@@ -915,7 +1041,7 @@ SDK not loaded.</pre
         </details>
         <details id="path-test" class="test-section">
           <summary>
-            <span class="section-number" aria-hidden="true">4. </span>
+            <span class="section-number" aria-hidden="true">5. </span>
             <h2>URL-pattern test</h2>
           </summary>
           <p class="hint" id="test-path-help">
