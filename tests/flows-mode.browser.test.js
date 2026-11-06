@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("DSR links never load either SDK or initialize consent diagnostics, even with CMP overrides", async ({
+test("invalid DSR links start no SDK or consent diagnostics, even with CMP overrides", async ({
   page,
 }) => {
   const requests = [];
@@ -9,7 +9,7 @@ test("DSR links never load either SDK or initialize consent diagnostics, even wi
     "/index.html?flow_type=dsr&apiKey=public-key&flow_id=dsr-flow&gpp_stub=1&commit_hash=latest&ctv_ui=1&apply_conf=1&config=invalid#test",
   );
   await expect(page.locator("#status")).toContainText(
-    "No SDK or request form is loaded",
+    "public API key must be a UUID",
   );
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Test your Subject Request Flows",
@@ -25,7 +25,6 @@ test("DSR links never load either SDK or initialize consent diagnostics, even wi
     "framework-diagnostics",
     "data-layer-diagnostics",
     "flow-form",
-    "show-widget",
     "reset-status-setup",
   ])
     await expect(page.locator(`#${id}`)).toHaveCount(0);
@@ -58,7 +57,7 @@ test("DSR links never load either SDK or initialize consent diagnostics, even wi
   await expect(page.locator("#troubleshoot-panel")).toBeVisible();
   await page.reload();
   await expect(page.locator("#status")).toContainText(
-    "No SDK or request form is loaded",
+    "public API key must be a UUID",
   );
 });
 
@@ -77,9 +76,8 @@ test("changing products navigates to a fresh document and removes previous SDK g
   await expect(page.locator("#status")).toContainText("SDK ready");
   expect(await page.evaluate(() => typeof window.__tcfapi)).toBe("function");
   await page.getByLabel("Flow type", { exact: true }).selectOption("dsr");
-  await expect(page.locator("#status")).toContainText(
-    "No SDK or request form is loaded",
-  );
+  await expect(page.locator("#dsr-form")).toBeVisible();
+  await expect(page.locator("#dsr-preview")).toHaveCount(0);
   expect(new URL(page.url()).search).toBe(
     "?apiKey=public-key&environment=staging&sdk_environment=staging&flow_type=dsr",
   );

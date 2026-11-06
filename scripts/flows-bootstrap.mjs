@@ -11,8 +11,8 @@ try {
   select.value = type;
   if (type === "consent") await import("./flows.js");
   else {
-    const { startDSRFoundation } = await import("./flows-dsr.mjs");
-    startDSRFoundation();
+    const { startDSR } = await import("./flows-dsr.mjs");
+    startDSR();
   }
 } catch (error) {
   const requested = new URLSearchParams(location.search).get("flow_type");
