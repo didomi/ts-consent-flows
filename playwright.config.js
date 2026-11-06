@@ -7,6 +7,7 @@ module.exports = defineConfig({
     "flows-data-layer.browser.test.js",
     "flows-consent-state.browser.test.js",
     "flows-framework.browser.test.js",
+    "flows-mode.browser.test.js",
   ],
   use: { headless: true, baseURL: "http://127.0.0.1:4173" },
   webServer: {

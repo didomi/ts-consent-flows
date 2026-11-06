@@ -1,6 +1,8 @@
 // Capture startup failures before the SDK and the page module execute.
 // Records stay in this page's memory; they are not sent or added to share links.
 (function () {
+  const flowType = new URLSearchParams(location.search).get("flow_type");
+  if (flowType && flowType !== "consent") return;
   if (window.flowDebugCapture) return;
   const entries = [];
   let dropped = 0;

@@ -9,6 +9,7 @@ import {
   widgetOptions,
   widgetDiagnostics,
 } from "./flows-state.mjs";
+import { writeSDK } from "./sdk.js";
 import { createJSONViewer } from "./flows-json-viewer.mjs";
 import { createTroubleshooting } from "./flows-troubleshooting.mjs";
 import {
