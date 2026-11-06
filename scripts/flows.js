@@ -18,26 +18,45 @@ import {
 import { createPathTest } from "./flows-path-test.mjs";
 import { createDataLayerPanel } from "./flows-data-layer.mjs";
 import { createWorkspace } from "./flows-layout.mjs";
+import { createConsentStatePanel } from "./flows-consent-state-panel.mjs";
 
 const form = document.querySelector("#flow-form");
 const status = document.querySelector("#status");
 const info = document.querySelector("#runtime-info");
+const consentState = createConsentStatePanel(
+  document.querySelector("#consent-state"),
+  () => consentStrings.refresh(),
+);
 const consentStrings = createConsentStrings(
   document.querySelector("#consent-strings"),
-  (snapshot) => {
+  (snapshot, context) => {
     let stored = false;
+    let config;
+    let shouldCollect;
+    try {
+      config = window.Didomi?.getConfig?.();
+    } catch {
+      /* Optional context. */
+    }
+    try {
+      shouldCollect = window.Didomi?.shouldUserStatusBeCollected?.();
+    } catch {
+      /* Optional context. */
+    }
     try {
       stored = hasStoredChoice(
         snapshot,
-        window.Didomi?.getConfig?.(),
-        window.Didomi?.shouldUserStatusBeCollected?.(),
+        config,
+        shouldCollect,
         performance.timeOrigin,
       );
     } catch {
       /* Do not infer a saved choice when the SDK cannot confirm it. */
     }
     document.querySelector("#stored-consent-banner").hidden = !stored;
+    consentState.update(snapshot, { ...context, config, shouldCollect });
   },
+  (state) => consentState.readState(state),
 );
 const pathTest = createPathTest(document.querySelector("#path-test"));
 const dataLayer = createDataLayerPanel(

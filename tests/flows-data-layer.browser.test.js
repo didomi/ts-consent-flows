@@ -207,21 +207,23 @@ test("test tab sections are ordered and collapsible with keyboard navigation", a
     expect.arrayContaining([
       expect.stringContaining("Widget controls"),
       expect.stringContaining("Consent strings"),
+      expect.stringContaining("Current consent state"),
       expect.stringContaining("Google Consent Mode"),
       expect.stringContaining("URL-pattern test"),
     ]),
   );
-  await expect(sections).toHaveCount(4);
+  await expect(sections).toHaveCount(5);
   const labels = await sections
     .locator(":scope > summary h2")
     .allTextContents();
   expect(labels).toEqual([
     "Widget controls",
     "Consent strings",
+    "Current consent state",
     "Data layer and Google Consent Mode",
     "URL-pattern test",
   ]);
-  const summary = sections.nth(2).locator(":scope > summary");
+  const summary = sections.nth(3).locator(":scope > summary");
   await summary.focus();
   await summary.press("Enter");
   await expect(page.locator("#data-layer-filter")).toBeHidden();

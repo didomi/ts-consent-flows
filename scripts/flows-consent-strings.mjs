@@ -48,7 +48,11 @@ export function hasStoredChoice(status, config, shouldCollect, pageStarted) {
   );
 }
 
-export function createConsentStrings(section, onSnapshot = () => {}) {
+export function createConsentStrings(
+  section,
+  onSnapshot = () => {},
+  onReadState = () => {},
+) {
   const refresh = section.querySelector("#read-consent-strings");
   const feedback = section.querySelector("#consent-strings-status");
   const entries = [
@@ -85,13 +89,28 @@ export function createConsentStrings(section, onSnapshot = () => {}) {
   let timers = [];
   const subscribed = new WeakSet();
   async function readSnapshot() {
-    const sdk = window.Didomi;
-    if (typeof sdk?.getCurrentUserStatus !== "function") return;
     const current = ++request;
+    const sdk = window.Didomi;
+    if (typeof sdk?.getCurrentUserStatus !== "function") {
+      clear();
+      refresh.disabled = true;
+      feedback.textContent =
+        "The loaded SDK does not expose getCurrentUserStatus().";
+      for (const entry of entries) entry.status.textContent = "Not read.";
+      onReadState({
+        phase: "unavailable",
+        message: "The loaded SDK does not expose getCurrentUserStatus().",
+      });
+      return;
+    }
     let timeout;
     refresh.disabled = true;
     clear();
     feedback.textContent = "Reading current consent strings…";
+    onReadState({
+      phase: "reading",
+      message: "Reading the current SDK snapshot…",
+    });
     for (const entry of entries) entry.status.textContent = "Reading…";
     try {
       const status = await Promise.race([
@@ -104,7 +123,9 @@ export function createConsentStrings(section, onSnapshot = () => {}) {
         }),
       ]);
       if (current !== request) return;
-      onSnapshot(status);
+      if (!status || typeof status !== "object" || Array.isArray(status))
+        throw new Error("The SDK returned no valid user-status object.");
+      onSnapshot(status, { capturedAt: new Date().toISOString() });
       for (const entry of entries) {
         let stored;
         if (entry.read) {
@@ -113,7 +134,7 @@ export function createConsentStrings(section, onSnapshot = () => {}) {
           } catch (error) {
             stored = {
               value: "",
-              description: `Could not read the stored DCS: ${error?.message || "storage information unavailable"}. Check Troubleshooting on this tab.`,
+              description: `Could not read the stored DCS: ${error?.message || "storage information unavailable"}. Check the Troubleshoot tab.`,
             };
           }
         }
@@ -141,7 +162,11 @@ export function createConsentStrings(section, onSnapshot = () => {}) {
       if (current !== request) return;
       clear();
       for (const entry of entries) entry.status.textContent = "Not read.";
-      feedback.textContent = `Could not read consent strings: ${error?.message || "the SDK did not return a user status"}. Check Troubleshooting on this tab.`;
+      feedback.textContent = `Could not read consent strings: ${error?.message || "the SDK did not return a user status"}. Check the Troubleshoot tab.`;
+      onReadState({
+        phase: "error",
+        message: `Could not read the current consent state: ${error?.message || "SDK response unavailable"}. Previous values were cleared.`,
+      });
     } finally {
       clearTimeout(timeout);
       if (current === request) refresh.disabled = false;
@@ -151,6 +176,7 @@ export function createConsentStrings(section, onSnapshot = () => {}) {
     // Invalidate an older in-flight snapshot immediately. Storage writes and
     // framework encoding may settle after the public consent event fires.
     request++;
+    onReadState({ phase: "stale", message: "A new snapshot is scheduled." });
     timers.forEach(clearTimeout);
     timers = [
       setTimeout(readSnapshot, 50),
@@ -176,12 +202,22 @@ export function createConsentStrings(section, onSnapshot = () => {}) {
     });
   }
   return {
+    refresh() {
+      timers.forEach(clearTimeout);
+      return readSnapshot();
+    },
     setReady() {
       refresh.disabled =
         typeof window.Didomi?.getCurrentUserStatus !== "function";
       feedback.textContent = refresh.disabled
         ? "The loaded SDK does not expose getCurrentUserStatus(). Check the SDK version and Troubleshooting."
         : "Reading consent strings automatically. Reading does not change consent choices.";
+      if (refresh.disabled) {
+        request++;
+        timers.forEach(clearTimeout);
+        clear();
+        onReadState({ phase: "unavailable", message: feedback.textContent });
+      }
       const sdk = window.Didomi;
       if (sdk && typeof sdk.on === "function" && !subscribed.has(sdk)) {
         subscribed.add(sdk);
