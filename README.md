@@ -6,9 +6,9 @@ The website https://didomi.github.io/ts-consent-flows enables you to test, share
 
 The **Flow type** selector separates Consent Flows from Subject Request Flows
 (DSR). Existing URLs continue to open Consent Flows. DSR links use
-`flow_type=dsr`; this currently opens a preparation screen without loading an
-SDK, fetching a configuration or displaying a request form. DSR testing is not
-enabled yet.
+`flow_type=dsr`. DSR mode loads published Web configurations and request forms
+in an isolated preview, with widget controls and DSR-specific diagnostics.
+Request submission is blocked; the preview does not create subject requests.
 
 Changing Flow type reloads the document and keeps only the public API key and
 environment selections. Flow IDs, widget selections, SDK overrides and test
