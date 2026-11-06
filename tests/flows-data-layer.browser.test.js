@@ -212,7 +212,7 @@ test("test tab sections are ordered and collapsible with keyboard navigation", a
       expect.stringContaining("URL-pattern test"),
     ]),
   );
-  await expect(sections).toHaveCount(5);
+  await expect(sections).toHaveCount(6);
   const labels = await sections
     .locator(":scope > summary h2")
     .allTextContents();
@@ -220,10 +220,11 @@ test("test tab sections are ordered and collapsible with keyboard navigation", a
     "Widget controls",
     "Consent strings",
     "Current consent state",
+    "TCF and GPP API diagnostics",
     "Data layer and Google Consent Mode",
     "URL-pattern test",
   ]);
-  const summary = sections.nth(3).locator(":scope > summary");
+  const summary = sections.nth(4).locator(":scope > summary");
   await summary.focus();
   await summary.press("Enter");
   await expect(page.locator("#data-layer-filter")).toBeHidden();

@@ -516,6 +516,12 @@
         margin: 0;
         overflow-wrap: anywhere;
       }
+      #sandbox #framework-diagnostics pre {
+        max-height: 440px;
+        overflow: auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
       #sandbox .consent-state-table {
         max-height: 440px;
         overflow: auto;
@@ -970,6 +976,60 @@ No current snapshot available.</pre
         <details class="test-section">
           <summary>
             <span class="section-number" aria-hidden="true">4. </span>
+            <h2 id="framework-title">TCF and GPP API diagnostics</h2>
+          </summary>
+          <section id="framework-diagnostics" aria-labelledby="framework-title">
+            <p class="hint">
+              Inspect framework APIs without changing consent or enabling
+              frameworks. A startup stub can exist before a working API. Ready
+              responses do not prove agreement, applicability or legal
+              compliance. Ping and event-listener probes run independently, with
+              a five-second initial callback timeout. API replacements are
+              checked for 20 seconds; use Probe APIs to retry later.
+            </p>
+            <div class="actions">
+              <button type="button" data-framework-refresh>Probe APIs</button
+              ><button type="button" data-framework-clear>Clear view</button
+              ><button type="button" data-framework-copy disabled>
+                Copy framework report
+              </button>
+            </div>
+            <p class="hint" data-framework-feedback role="status">
+              Probes start when a Flow is loaded. Clear view stops observation
+              and requests listener cleanup; it does not reset consent.
+            </p>
+            <p class="hint">
+              Each framework retains up to 30 bounded observations in browser
+              memory. Copy includes returned identifiers and consent strings.
+              Nothing is added to share links.
+            </p>
+            <h3>TCF API</h3>
+            <p data-framework-status="tcf" role="status">Not probed.</p>
+            <p class="hint" data-framework-summary="tcf"></p>
+            <p class="hint" data-framework-evidence="tcf"></p>
+            <details>
+              <summary>TCF responses and event history</summary>
+              <pre data-framework-raw="tcf">No observations.</pre>
+            </details>
+            <h3>GPP API</h3>
+            <p data-framework-status="gpp" role="status">Not probed.</p>
+            <p class="hint" data-framework-summary="gpp"></p>
+            <p class="hint" data-framework-evidence="gpp"></p>
+            <details>
+              <summary>
+                GPP responses, parsed sections and event history
+              </summary>
+              <pre data-framework-raw="gpp">No observations.</pre>
+            </details>
+            <details>
+              <summary>Copy fallback</summary>
+              <pre data-framework-report></pre>
+            </details>
+          </section>
+        </details>
+        <details class="test-section">
+          <summary>
+            <span class="section-number" aria-hidden="true">5. </span>
             <h2 id="data-layer-title">Data layer and Google Consent Mode</h2>
           </summary>
           <section
@@ -1041,7 +1101,7 @@ No current snapshot available.</pre
         </details>
         <details id="path-test" class="test-section">
           <summary>
-            <span class="section-number" aria-hidden="true">5. </span>
+            <span class="section-number" aria-hidden="true">6. </span>
             <h2>URL-pattern test</h2>
           </summary>
           <p class="hint" id="test-path-help">

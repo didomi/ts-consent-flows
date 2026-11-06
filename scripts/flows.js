@@ -18,11 +18,15 @@ import {
 import { createPathTest } from "./flows-path-test.mjs";
 import { createDataLayerPanel } from "./flows-data-layer.mjs";
 import { createWorkspace } from "./flows-layout.mjs";
+import { createFrameworkPanel } from "./flows-framework-panel.mjs";
 import { createConsentStatePanel } from "./flows-consent-state-panel.mjs";
 
 const form = document.querySelector("#flow-form");
 const status = document.querySelector("#status");
 const info = document.querySelector("#runtime-info");
+const frameworkPanel = createFrameworkPanel(
+  document.querySelector("#framework-diagnostics"),
+);
 const consentState = createConsentStatePanel(
   document.querySelector("#consent-state"),
   () => consentStrings.refresh(),
@@ -55,8 +59,12 @@ const consentStrings = createConsentStrings(
     }
     document.querySelector("#stored-consent-banner").hidden = !stored;
     consentState.update(snapshot, { ...context, config, shouldCollect });
+    frameworkPanel.setContext(snapshot, config, context.capturedAt);
   },
-  (state) => consentState.readState(state),
+  (state) => {
+    consentState.readState(state);
+    frameworkPanel.stale();
+  },
 );
 const pathTest = createPathTest(document.querySelector("#path-test"));
 const dataLayer = createDataLayerPanel(
@@ -549,6 +557,7 @@ async function start() {
     try {
       ready = true;
       consentStrings.setReady();
+      frameworkPanel.setReady();
       pathTest.setReady();
       clearTimeout(readyTimer);
       document.querySelector("#show-widget").disabled = false;
@@ -616,6 +625,7 @@ async function start() {
     }
     // Install the TCF bootstrap and load the selected Flow.
     writeSDK(url.href);
+    frameworkPanel.start();
     const loader = document.querySelector("#spcloader");
     loader.addEventListener("error", () => {
       clearTimeout(readyTimer);
