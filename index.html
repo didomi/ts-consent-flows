@@ -574,6 +574,16 @@
         </nav>
       </header>
       <div class="intro">
+        <label for="flow-type">Flow type</label>
+        <select id="flow-type" aria-describedby="flow-type-help">
+          <option value="consent">Consent Flows</option>
+          <option value="dsr">Subject Request Flows (DSR)</option>
+        </select>
+        <p id="flow-type-help" class="hint">
+          Switching Flow type reloads the page. Only the public API key and
+          environment selections carry over; choose a Flow for the selected
+          type.
+        </p>
         <h1>Test your Consent Flows</h1>
         <p>
           Load a published Flow, override its delivery settings, and inspect its
@@ -1325,7 +1335,6 @@ The SDK has not loaded a configuration yet.</pre
         </div>
       </dialog>
     </main>
-    <script src="scripts/sdk.js"></script>
-    <script type="module" src="scripts/flows.js"></script>
+    <script type="module" src="scripts/flows-bootstrap.mjs"></script>
   </body>
 </html>

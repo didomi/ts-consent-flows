@@ -10,6 +10,8 @@ const source = readFileSync(
 function setup() {
   let tick;
   const context = vm.createContext({
+    URLSearchParams,
+    location: { search: "" },
     setInterval: (fn) => {
       tick = fn;
     },

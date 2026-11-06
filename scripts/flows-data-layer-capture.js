@@ -1,6 +1,8 @@
 // Observe queues without creating them, emitting commands, or loading tags.
 // Polling discovers late/replaced queues; push wrapping timestamps new entries.
 (function () {
+  const flowType = new URLSearchParams(location.search).get("flow_type");
+  if (flowType && flowType !== "consent") return;
   if (window.flowDataLayerCapture) return;
   const entries = [];
   const watches = new Map();

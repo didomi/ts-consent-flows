@@ -2,6 +2,22 @@
 
 The website https://didomi.github.io/ts-consent-flows enables you to test, share, and troubleshoot Didomi Consent Flows configurations.
 
+## Flow types
+
+The **Flow type** selector separates Consent Flows from Subject Request Flows
+(DSR). Existing URLs continue to open Consent Flows. DSR links use
+`flow_type=dsr`; this currently opens a preparation screen without loading an
+SDK, fetching a configuration or displaying a request form. DSR testing is not
+enabled yet.
+
+Changing Flow type reloads the document and keeps only the public API key and
+environment selections. Flow IDs, widget selections, SDK overrides and test
+identities must be set separately for each product. The four workspace tabs
+remain Setup, Test, Configuration and Troubleshoot.
+
+See the [DSR development and preview workflow](docs/dsr-flows.md) for scope and
+the shared feature-preview process.
+
 ## Consent Notices
 
 Open the [CMP notice sandbox](https://didomi.github.io/ts-all-cmp/) to test Consent Notices. Its source and tests are maintained separately in [ts-all-cmp](https://github.com/didomi/ts-all-cmp).
@@ -60,7 +76,9 @@ https://didomi.github.io/ts-consent-flows/?apiKey=YOUR_PUBLIC_KEY&flow_id=YOUR_F
 ## Repository layout
 
 - `index.html`: sandbox page and styles.
-- `scripts/flows.js`: page setup, SDK startup, and widget controls.
+- `scripts/flows-bootstrap.mjs`: selects one product entry point per document.
+- `scripts/flows.js`: Consent Flow setup, SDK startup, and widget controls.
+- `scripts/flows-dsr.mjs`: DSR preparation screen; no SDK or form is loaded.
 - `scripts/flows-*.mjs`: state, configuration viewer, diagnostics, consent strings, and path testing.
 - `scripts/sdk.js` and `scripts/gpp_stub.js`: SDK startup and consent API stubs.
 - `docs/flows.md`: usage and troubleshooting reference.

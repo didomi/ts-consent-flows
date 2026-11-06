@@ -1,4 +1,4 @@
-function writeSDK(loaderUrl) {
+export function writeSDK(loaderUrl) {
   (function () {
     function n(e) {
       if (!window.frames[e]) {
